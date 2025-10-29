@@ -1,98 +1,464 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+} from 'react-native';
+import { Stack } from 'expo-router';
+import { Wallet, TrendingUp, TrendingDown, Plus, X } from 'lucide-react-native';
+import { useTransactions } from '@/providers/TransactionProvider';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function DashboardScreen() {
+  const { modes, addTransaction, isAddingTransaction } = useTransactions();
+  const insets = useSafeAreaInsets();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState<'in' | 'out'>('in');
+  const [selectedModeId, setSelectedModeId] = useState('');
+  const [note, setNote] = useState('');
 
-export default function HomeScreen() {
+  const totalBalance = modes.reduce((sum, mode) => sum + mode.currentBalance, 0);
+
+  const handleOpenModal = () => {
+    const cashMode = modes.find(m => m.name.toLowerCase() === 'cash');
+    if (cashMode) {
+      setSelectedModeId(cashMode.id);
+    } else if (modes.length > 0) {
+      setSelectedModeId(modes[0].id);
+    }
+    setShowAddModal(true);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleAddTransaction = () => {
+    if (!amount || !selectedModeId) return;
+
+    addTransaction({
+      modeId: selectedModeId,
+      amount: parseFloat(amount),
+      type,
+      note: note || undefined,
+    });
+
+    setAmount('');
+    setNote('');
+    setShowAddModal(false);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  useEffect(() => {
+    console.log(modes);
+    
+  },[])
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <LinearGradient colors={['#271c5aff', '#203a4eff']} style={[styles.header, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerLabel}>Total Balance</Text>
+          <Text style={styles.headerAmount}>₹{totalBalance.toFixed(2)}</Text>
+        </View>
+      </LinearGradient>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.modesSection}>
+          <Text style={styles.sectionTitle}>Your Accounts</Text>
+          <View style={styles.modesGrid}>
+            {modes.map((mode) => (
+              <View key={mode.id} style={[styles.modeCard, { borderLeftColor: mode.color }]}>
+                <View style={styles.modeHeader}>
+                  <View style={[styles.modeIcon, { backgroundColor: mode.color + '20' }]}>
+                    <Wallet size={20} color={mode.color} />
+                  </View>
+                  <Text style={styles.modeName}>{mode.name}</Text>
+                </View>
+                <Text style={styles.modeBalance}>₹{mode.currentBalance.toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+
+          {modes.length === 0 && (
+            <View style={styles.emptyState}>
+              <Wallet size={48} color="#ccc" />
+              <Text style={styles.emptyText}>No accounts yet</Text>
+              <Text style={styles.emptySubtext}>Add your first account to get started</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleOpenModal}
+        activeOpacity={0.8}
+      >
+        <LinearGradient colors={['#000000ff', '#4d4d4dff']} style={styles.fabGradient}>
+          <Plus size={28} color="#fff" />
+        </LinearGradient>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Transaction</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <X size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.typeSelector}>
+              <TouchableOpacity
+                style={[styles.typeButton, type === 'in' && styles.inButtonActive]}
+                onPress={() => {
+                  setType('in');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+              >
+                <TrendingUp size={20} color={type === 'in' ? '#fff' : '#10b981'} />
+                <Text style={[styles.typeButtonText, type === 'in' && styles.typeButtonTextActive]}>
+                  Income
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.typeButton, type === 'out' && styles.outButtonActive]}
+                onPress={() => {
+                  setType('out');
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+              >
+                <TrendingDown size={20} color={type === 'out' ? '#fff' : '#ef4444'} />
+                <Text style={[styles.typeButtonText, type === 'out' && styles.typeButtonTextActive]}>
+                  Expense
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Amount</Text>
+              <TextInput
+                style={styles.input}
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Account</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modeSelector}>
+                {modes.map((mode) => (
+                  <TouchableOpacity
+                    key={mode.id}
+                    style={[
+                      styles.modeSelectorItem,
+                      selectedModeId === mode.id && styles.modeSelectorItemActive,
+                      { borderColor: selectedModeId === mode.id ? mode.color : '#e5e5e5' },
+                      selectedModeId === mode.id && { backgroundColor: mode.color },
+                      { borderColor: mode.color },
+                    ]}
+                    onPress={() => {
+                      setSelectedModeId(mode.id);
+                      if (Platform.OS !== 'web') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                  >
+                    <Wallet size={16} color={selectedModeId === mode.id ? '#fff' : mode.color} />
+                    <Text
+                      style={[
+                        styles.modeSelectorText,
+                        selectedModeId === mode.id && styles.modeSelectorTextActive,
+                      ]}
+                    >
+                      {mode.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Note (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={note}
+                onChangeText={setNote}
+                placeholder="Add a note..."
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitButton, (!amount || !selectedModeId || isAddingTransaction) && styles.submitButtonDisabled]}
+              onPress={handleAddTransaction}
+              disabled={!amount || !selectedModeId || isAddingTransaction}
+            >
+              <LinearGradient
+                colors={(!amount || !selectedModeId || isAddingTransaction) ? ['#ccc', '#999'] : type === 'in' ? ['#10b943ff', '#059669'] : ['#ff3232ff', '#c42121ff']}
+                style={styles.submitButtonGradient}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isAddingTransaction ? 'Adding...' : 'Add Transaction'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  headerLabel: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+    marginBottom: 8,
+  },
+  headerAmount: {
+    fontSize: 42,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  content: {
+    flex: 1,
+  },
+  modesSection: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#333',
+    marginBottom: 16,
+  },
+  modesGrid: {
+    gap: 12,
+  },
+  modeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  modeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  modeName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#333',
+  },
+  modeBalance: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#333',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: '#666',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#333',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e5e5e5',
+    backgroundColor: '#fff',
+  },
+  typeButtonActive: {
+    backgroundColor: '#182e5eff',
+    borderColor: '#000000ff',
+  },
+  inButtonActive: {
+    backgroundColor: '#00ad09ff',
+    borderColor: '#0f7c18ff',
+  },
+  outButtonActive: {
+    backgroundColor: '#e2000bff',
+    borderColor: '#a7151dff',
+  },
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#333',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#333',
+  },
+  modeSelector: {
+    marginTop: 8,
+  },
+  modeSelectorItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 2,
+    marginRight: 12,
+    backgroundColor: '#fff',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  modeSelectorItemActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  modeSelectorText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#333',
+  },
+  modeSelectorTextActive: {
+    color: '#fff',
+  },
+  submitButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+  },
+  submitButtonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
 });

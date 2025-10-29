@@ -2,7 +2,7 @@
   "expo": {
     "name": "Daily Expense Manager",
     "slug": "daily-expense-manager",
-    "version": "2.2.7",
+    "version": "2.4.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dailyexpensemanager",
@@ -14,10 +14,11 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/favicon.png",
+        "foregroundImage": "./assets/images/favicon.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/favicon.png"
       },
+      "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.garanaibrahim7.dailyexpensemanager"
@@ -36,6 +37,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
+            "image": "./assets/images/icon-dark.png",
             "backgroundColor": "#000000"
           }
         }

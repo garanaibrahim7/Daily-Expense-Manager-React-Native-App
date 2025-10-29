@@ -1,19 +1,20 @@
+import { useTransactions } from '@/providers/TransactionProvider';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Stack } from 'expo-router';
+import { Plus, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
+  KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Stack } from 'expo-router';
-import { Wallet, TrendingUp, TrendingDown, Plus, X } from 'lucide-react-native';
-import { useTransactions } from '@/providers/TransactionProvider';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
@@ -60,8 +61,8 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     console.log(modes);
-    
-  },[])
+
+  }, [])
 
   return (
     <View style={styles.container}>
@@ -73,7 +74,7 @@ export default function DashboardScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.modesSection}>
           <Text style={styles.sectionTitle}>Your Accounts</Text>
           <View style={styles.modesGrid}>
@@ -117,118 +118,123 @@ export default function DashboardScreen() {
         onRequestClose={() => setShowAddModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Transaction</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <X size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContentWrapper}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Transaction</Text>
+                <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                  <X size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.typeSelector}>
-              <TouchableOpacity
-                style={[styles.typeButton, type === 'in' && styles.inButtonActive]}
-                onPress={() => {
-                  setType('in');
-                  if (Platform.OS !== 'web') {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                }}
-              >
-                <TrendingUp size={20} color={type === 'in' ? '#fff' : '#10b981'} />
-                <Text style={[styles.typeButtonText, type === 'in' && styles.typeButtonTextActive]}>
-                  Income
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.typeSelector}>
+                <TouchableOpacity
+                  style={[styles.typeButton, type === 'in' && styles.inButtonActive]}
+                  onPress={() => {
+                    setType('in');
+                    if (Platform.OS !== 'web') {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}
+                >
+                  <TrendingUp size={20} color={type === 'in' ? '#fff' : '#10b981'} />
+                  <Text style={[styles.typeButtonText, type === 'in' && styles.typeButtonTextActive]}>
+                    Income
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.typeButton, type === 'out' && styles.outButtonActive]}
-                onPress={() => {
-                  setType('out');
-                  if (Platform.OS !== 'web') {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                }}
-              >
-                <TrendingDown size={20} color={type === 'out' ? '#fff' : '#ef4444'} />
-                <Text style={[styles.typeButtonText, type === 'out' && styles.typeButtonTextActive]}>
-                  Expense
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={[styles.typeButton, type === 'out' && styles.outButtonActive]}
+                  onPress={() => {
+                    setType('out');
+                    if (Platform.OS !== 'web') {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}
+                >
+                  <TrendingDown size={20} color={type === 'out' ? '#fff' : '#ef4444'} />
+                  <Text style={[styles.typeButtonText, type === 'out' && styles.typeButtonTextActive]}>
+                    Expense
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Amount</Text>
-              <TextInput
-                style={styles.input}
-                value={amount}
-                onChangeText={setAmount}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                placeholderTextColor="#999"
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Amount</Text>
+                <TextInput
+                  style={styles.input}
+                  value={amount}
+                  onChangeText={setAmount}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  placeholderTextColor="#999"
+                />
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Account</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modeSelector}>
-                {modes.map((mode) => (
-                  <TouchableOpacity
-                    key={mode.id}
-                    style={[
-                      styles.modeSelectorItem,
-                      selectedModeId === mode.id && styles.modeSelectorItemActive,
-                      { borderColor: selectedModeId === mode.id ? mode.color : '#e5e5e5' },
-                      selectedModeId === mode.id && { backgroundColor: mode.color },
-                      { borderColor: mode.color },
-                    ]}
-                    onPress={() => {
-                      setSelectedModeId(mode.id);
-                      if (Platform.OS !== 'web') {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }
-                    }}
-                  >
-                    <Wallet size={16} color={selectedModeId === mode.id ? '#fff' : mode.color} />
-                    <Text
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Account</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modeSelector} keyboardShouldPersistTaps="handled">
+                  {modes.map((mode) => (
+                    <TouchableOpacity
+                      key={mode.id}
                       style={[
-                        styles.modeSelectorText,
-                        selectedModeId === mode.id && styles.modeSelectorTextActive,
+                        styles.modeSelectorItem,
+                        selectedModeId === mode.id && styles.modeSelectorItemActive,
+                        { borderColor: selectedModeId === mode.id ? mode.color : '#e5e5e5' },
+                        selectedModeId === mode.id && { backgroundColor: mode.color },
+                        { borderColor: mode.color },
                       ]}
+                      onPress={() => {
+                        setSelectedModeId(mode.id);
+                        if (Platform.OS !== 'web') {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                      }}
                     >
-                      {mode.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+                      <Wallet size={16} color={selectedModeId === mode.id ? '#fff' : mode.color} />
+                      <Text
+                        style={[
+                          styles.modeSelectorText,
+                          selectedModeId === mode.id && styles.modeSelectorTextActive,
+                        ]}
+                      >
+                        {mode.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Note (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={note}
-                onChangeText={setNote}
-                placeholder="Add a note..."
-                placeholderTextColor="#999"
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Note (Optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="Add a note..."
+                  placeholderTextColor="#999"
+                />
+              </View>
 
-            <TouchableOpacity
-              style={[styles.submitButton, (!amount || !selectedModeId || isAddingTransaction) && styles.submitButtonDisabled]}
-              onPress={handleAddTransaction}
-              disabled={!amount || !selectedModeId || isAddingTransaction}
-            >
-              <LinearGradient
-                colors={(!amount || !selectedModeId || isAddingTransaction) ? ['#ccc', '#999'] : type === 'in' ? ['#10b943ff', '#059669'] : ['#ff3232ff', '#c42121ff']}
-                style={styles.submitButtonGradient}
+              <TouchableOpacity
+                style={[styles.submitButton, (!amount || !selectedModeId || isAddingTransaction) && styles.submitButtonDisabled]}
+                onPress={handleAddTransaction}
+                disabled={!amount || !selectedModeId || isAddingTransaction}
               >
-                <Text style={styles.submitButtonText}>
-                  {isAddingTransaction ? 'Adding...' : 'Add Transaction'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={(!amount || !selectedModeId || isAddingTransaction) ? ['#ccc', '#999'] : type === 'in' ? ['#10b943ff', '#059669'] : ['#ff3232ff', '#c42121ff']}
+                  style={styles.submitButtonGradient}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {isAddingTransaction ? 'Adding...' : 'Add Transaction'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -364,6 +370,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700' as const,
     color: '#333',
+  },
+  modalContentWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   typeSelector: {
     flexDirection: 'row',

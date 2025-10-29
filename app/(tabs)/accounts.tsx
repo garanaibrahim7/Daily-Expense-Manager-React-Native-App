@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  Platform,
-  Alert,
-} from 'react-native';
-import { Stack } from 'expo-router';
-import { Wallet, Plus, X, Edit2, LogOut } from 'lucide-react-native';
-import { useTransactions } from '@/providers/TransactionProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useTransactions } from '@/providers/TransactionProvider';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Stack } from 'expo-router';
+import { Edit2, LogOut, Plus, Wallet, X } from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const COLORS = ['#667eea', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 const ICONS = ['wallet', 'bank', 'creditcard', 'piggybank'];
@@ -113,7 +114,7 @@ export default function AccountsScreen() {
         headerTintColor: '#fff',
       }} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.userSection}>
           <View style={styles.userInfo}>
             <View style={styles.userAvatar}>
@@ -188,80 +189,84 @@ export default function AccountsScreen() {
         onRequestClose={() => setShowAddModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingMode ? 'Edit Account' : 'Add Account'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <X size={24} color="#333" />
+          <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+              style={styles.modalContentWrapper}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {editingMode ? 'Edit Account' : 'Add Account'}
+                </Text>
+                <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                  <X size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Account Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g., Cash, Bank, Wallet"
+                  placeholderTextColor="#999"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Initial Balance</Text>
+                <TextInput
+                  style={styles.input}
+                  value={initialBalance}
+                  onChangeText={setInitialBalance}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  placeholderTextColor="#999"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Color</Text>
+                <View style={styles.colorPicker}>
+                  {COLORS.map((color) => (
+                    <TouchableOpacity
+                      key={color}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        selectedColor === color && styles.colorOptionSelected,
+                      ]}
+                      onPress={() => {
+                        setSelectedColor(color);
+                        if (Platform.OS !== 'web') {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                      }}
+                    >
+                      {selectedColor === color && (
+                        <View style={styles.colorCheckmark} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitButton, (!name || !initialBalance || isAddingMode) && styles.submitButtonDisabled]}
+                onPress={handleSave}
+                disabled={!name || !initialBalance || isAddingMode}
+              >
+                <LinearGradient
+                  colors={(!name || !initialBalance || isAddingMode) ? ['#ccc', '#999'] : selectedColor ? [selectedColor, selectedColor] : ['#667eea', '#764ba2']}
+                  style={styles.submitButtonGradient}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {isAddingMode ? 'Saving...' : editingMode ? 'Save Changes' : 'Add Account'}
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Account Name</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g., Cash, Bank, Wallet"
-                placeholderTextColor="#999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Initial Balance</Text>
-              <TextInput
-                style={styles.input}
-                value={initialBalance}
-                onChangeText={setInitialBalance}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                placeholderTextColor="#999"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Color</Text>
-              <View style={styles.colorPicker}>
-                {COLORS.map((color) => (
-                  <TouchableOpacity
-                    key={color}
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: color },
-                      selectedColor === color && styles.colorOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setSelectedColor(color);
-                      if (Platform.OS !== 'web') {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }
-                    }}
-                  >
-                    {selectedColor === color && (
-                      <View style={styles.colorCheckmark} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.submitButton, (!name || !initialBalance || isAddingMode) && styles.submitButtonDisabled]}
-              onPress={handleSave}
-              disabled={!name || !initialBalance || isAddingMode}
-            >
-              <LinearGradient
-                colors={(!name || !initialBalance || isAddingMode) ? ['#ccc', '#999'] : selectedColor ? [selectedColor, selectedColor] : ['#667eea', '#764ba2']}
-                style={styles.submitButtonGradient}
-              >
-                <Text style={styles.submitButtonText}>
-                  {isAddingMode ? 'Saving...' : editingMode ? 'Save Changes' : 'Add Account'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -458,6 +463,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700' as const,
     color: '#333',
+  },
+  modalContentWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   inputGroup: {
     marginBottom: 20,

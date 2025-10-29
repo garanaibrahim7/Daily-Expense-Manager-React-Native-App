@@ -12,12 +12,12 @@ let firestore: Firestore | null = null;
 let auth: Auth | null = null;
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyC86DJKV74RODjlntj9g_-aiNHyh8Ar6js',
-  authDomain: 'transaction-manager-2025.firebaseapp.com',
-  projectId: 'transaction-manager-2025',
-  storageBucket: 'transaction-manager-2025.appspot.com',
-  messagingSenderId: '995173713423',
-  appId: '1:995173713423:android:f14f4286b61bfc8c13057a',
+  apiKey: 'YOUR API KEY',
+  authDomain: 'YOUR DOMAIN NAME',
+  projectId: 'YOUR PROJECT ID',
+  storageBucket: 'YOUR PROJECT DETAIL',
+  messagingSenderId: 'YOUR PROJECT ID',
+  appId: 'YOUR APP ID',
 };
 
 export function initFirebase(): { app: FirebaseApp; firestore: Firestore; auth: Auth } {

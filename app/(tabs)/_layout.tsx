@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, History, BarChart3, Wallet } from "lucide-react-native";
+import { BarChart3, History, Home, Wallet } from "lucide-react-native";
 import React from "react";
 
 export default function TabLayout() {
@@ -12,7 +12,7 @@ export default function TabLayout() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: '#e5e5e5',
-          bottom: 5,
+          height: 80,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -23,14 +23,21 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          href: null,
+          title: "Index"
+        }}
+      />
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: "Home",
           tabBarIcon: ({ color }) => <Home size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="transactions"
         options={{
-          title: "History",
+          title: "Transactions",
           tabBarIcon: ({ color }) => <History size={24} color={color} />,
         }}
       />

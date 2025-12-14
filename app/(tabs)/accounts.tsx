@@ -22,18 +22,21 @@ const COLORS = ['#667eea', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'
 const ICONS = ['wallet', 'bank', 'creditcard', 'piggybank'];
 
 export default function AccountsScreen() {
-  const { modes, addMode, updateMode, isAddingMode } = useTransactions();
+  const { modes, transactions, addMode, updateMode, isAddingMode } = useTransactions();
   const { user, signOut } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMode, setEditingMode] = useState<any>(null);
   const [name, setName] = useState('');
   const [initialBalance, setInitialBalance] = useState('');
+  const [spendLimit, setSpendLimit] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState(ICONS[0]);
 
   const handleOpenAddModal = () => {
     setName('');
+    setName('');
     setInitialBalance('');
+    setSpendLimit('');
     setSelectedColor(COLORS[0]);
     setSelectedIcon(ICONS[0]);
     setEditingMode(null);
@@ -45,7 +48,9 @@ export default function AccountsScreen() {
 
   const handleOpenEditModal = (mode: any) => {
     setName(mode.name);
+    setName(mode.name);
     setInitialBalance(mode.initialBalance.toString());
+    setSpendLimit(mode.spendLimit ? mode.spendLimit.toString() : '');
     setSelectedColor(mode.color);
     setSelectedIcon(mode.icon);
     setEditingMode(mode);
@@ -65,6 +70,7 @@ export default function AccountsScreen() {
         initialBalance: parseFloat(initialBalance),
         color: selectedColor,
         icon: selectedIcon,
+        spendLimit: parseFloat(spendLimit) || 0,
       });
     } else {
       addMode({
@@ -72,6 +78,7 @@ export default function AccountsScreen() {
         initialBalance: parseFloat(initialBalance),
         color: selectedColor,
         icon: selectedIcon,
+        spendLimit: parseFloat(spendLimit) || 0,
       });
     }
 
@@ -149,7 +156,20 @@ export default function AccountsScreen() {
                   <View style={styles.accountInfo}>
                     <Text style={styles.accountName}>{mode.name}</Text>
                     <Text style={styles.accountBalance}>₹{mode.currentBalance.toFixed(2)}</Text>
-                    <Text style={styles.accountInitial}>Initial: ₹{mode.initialBalance.toFixed(2)}</Text>
+                    <View style={styles.statsRow}>
+                      <Text style={styles.accountInitial}>Initial: ₹{mode.initialBalance.toFixed(2)}</Text>
+                      {(mode.spendLimit ?? 0) > 0 && (
+                        <>
+                          <Text style={styles.accountLimit}> • Limit: ₹{mode.spendLimit!.toFixed(2)}</Text>
+                          <Text style={[
+                            styles.accountLimit,
+                            { color: (mode.spendLimit! - transactions.filter(t => t.modeId === mode.id && t.type === 'out' && !t.isExcluded && new Date(t.date).getMonth() === new Date().getMonth() && new Date(t.date).getFullYear() === new Date().getFullYear()).reduce((sum, t) => sum + t.amount, 0)) < 0 ? '#ef4444' : '#10b981' }
+                          ]}>
+                            • Rem: ₹{(mode.spendLimit! - transactions.filter(t => t.modeId === mode.id && t.type === 'out' && !t.isExcluded && new Date(t.date).getMonth() === new Date().getMonth() && new Date(t.date).getFullYear() === new Date().getFullYear()).reduce((sum, t) => sum + t.amount, 0)).toFixed(2)}
+                          </Text>
+                        </>
+                      )}
+                    </View>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -188,10 +208,11 @@ export default function AccountsScreen() {
         transparent
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView 
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-              style={styles.modalContentWrapper}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContentWrapper}>
+
+          <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
@@ -219,6 +240,18 @@ export default function AccountsScreen() {
                   style={styles.input}
                   value={initialBalance}
                   onChangeText={setInitialBalance}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  placeholderTextColor="#999"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Spending Limit (Optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={spendLimit}
+                  onChangeText={setSpendLimit}
                   placeholder="0.00"
                   keyboardType="decimal-pad"
                   placeholderTextColor="#999"
@@ -266,8 +299,8 @@ export default function AccountsScreen() {
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -380,6 +413,15 @@ const styles = StyleSheet.create({
   accountInitial: {
     fontSize: 12,
     color: '#999',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  accountLimit: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginLeft: 4,
   },
   editButton: {
     padding: 8,

@@ -1,9 +1,8 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/providers/AuthProvider';
 import { router } from 'expo-router';
-import { Wallet } from 'lucide-react-native';
+import { useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -12,6 +11,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
   const { signIn, signUp } = useAuth();
 
   const handleSubmit = async () => {
@@ -26,6 +26,7 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
+    setAuthError('');
     try {
       if (isSignUp) {
         await signUp(email, password, displayName || undefined);
@@ -50,9 +51,11 @@ export default function LoginScreen() {
         message = 'Invalid email or password';
       } else if (error.code === 'auth/configuration-not-found') {
         message = 'Firebase Authentication not enabled.\n\nPlease enable Email/Password authentication in Firebase Console:\n\n1. Go to Firebase Console\n2. Click Authentication → Sign-in method\n3. Enable Email/Password\n4. Save and try again';
+        Alert.alert('Error', message); // Keep alert for configuration error as it's long
+        return;
       }
 
-      Alert.alert('Error', message);
+      setAuthError(message);
     } finally {
       setLoading(false);
     }
@@ -82,6 +85,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
           {isSignUp && (
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Display Name</Text>
@@ -136,7 +140,10 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.switchButton}
-            onPress={() => setIsSignUp(!isSignUp)}
+            onPress={() => {
+              setIsSignUp(!isSignUp);
+              setAuthError('');
+            }}
             disabled={loading}
           >
             <Text style={styles.switchButtonText}>
@@ -145,7 +152,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingView >
   );
 }
 
@@ -235,5 +242,16 @@ const styles = StyleSheet.create({
   icon: {
     width: 120,
     height: 120,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+    backgroundColor: '#fee2e2',
+    padding: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
 });

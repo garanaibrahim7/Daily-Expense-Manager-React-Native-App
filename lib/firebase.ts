@@ -1,32 +1,49 @@
 // lib/firebase.ts
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import {
-  getFirestore, Firestore, collection, doc, setDoc, getDocs, deleteDoc
-} from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
-import { Transaction, TransactionMode } from '@/types/transaction';
 import * as db from '@/lib/database';
+import firebaseConfig from '@/lib/firebaseAPI.json';
+import { Transaction, TransactionMode } from '@/types/transaction';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
+// @ts-ignore
+import { Auth, getAuth, getReactNativePersistence, initializeAuth } from 'firebase/auth';
+import {
+  Firestore, collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  getFirestore,
+  setDoc
+} from 'firebase/firestore';
 
 let app: FirebaseApp | null = null;
 let firestore: Firestore | null = null;
 let auth: Auth | null = null;
 
-const firebaseConfig = {
-  apiKey: 'YOUR API KEY',
-  authDomain: 'YOUR DOMAIN NAME',
-  projectId: 'YOUR PROJECT ID',
-  storageBucket: 'YOUR PROJECT DETAIL',
-  messagingSenderId: 'YOUR PROJECT ID',
-  appId: 'YOUR APP ID',
-};
+// const firebaseConfig = {
+//   apiKey: 'YOUR API KEY',
+//   authDomain: 'YOUR DOMAIN NAME',
+//   projectId: 'YOUR PROJECT ID',
+//   storageBucket: 'YOUR PROJECT DETAIL',
+//   messagingSenderId: 'YOUR PROJECT ID',
+//   appId: 'YOUR APP ID',
+// };
 
 export function initFirebase(): { app: FirebaseApp; firestore: Firestore; auth: Auth } {
   if (!app) {
     const existing = getApps();
     app = existing.length > 0 ? existing[0] : initializeApp(firebaseConfig);
+
+    // Initialize Auth with AsyncStorage persistence
+    if (existing.length === 0) {
+      auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+      });
+    } else {
+      auth = getAuth(app);
+    }
+
     firestore = getFirestore(app);
-    auth = getAuth(app);
-    console.log('✅ Firebase initialized');
+    // console.log('✅ Firebase initialized');
   }
   return { app, firestore: firestore!, auth: auth! };
 }
@@ -45,6 +62,7 @@ export async function fetchAllTransactionModes(userId: string): Promise<Transact
       icon: (d.data() as any).icon,
       createdAt: (d.data() as any).createdAt,
       synced: true,
+      spendLimit: (d.data() as any).spendLimit || 0,
     }));
   } catch (err) {
     console.error('fetchAllTransactionModes error', err);
@@ -69,6 +87,7 @@ export async function fetchAllTransactions(userId: string): Promise<Transaction[
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
         synced: true,
+        isExcluded: data.isExcluded,
       } as Transaction;
     });
   } catch (err) {
@@ -90,8 +109,9 @@ export async function syncTransactionModeToFirebase(userId: string, mode: Transa
       icon: mode.icon,
       createdAt: mode.createdAt,
       updatedAt: Date.now(),
+      spendLimit: mode.spendLimit || 0,
     }, { merge: true });
-    console.log('Uploaded mode to firebase:', mode.id);
+    // console.log('Uploaded mode to firebase:', mode.id);
   } catch (err) {
     console.warn('Failed upload mode to firebase', err);
     throw err;
@@ -112,8 +132,9 @@ export async function syncTransactionToFirebase(userId: string, transaction: Tra
       date: transaction.date,
       createdAt: transaction.createdAt,
       updatedAt: transaction.updatedAt,
+      isExcluded: transaction.isExcluded || false,
     }, { merge: true });
-    console.log('Uploaded transaction to firebase:', transaction.id);
+    // console.log('Uploaded transaction to firebase:', transaction.id);
   } catch (err) {
     console.warn('Failed upload transaction to firebase', err);
     throw err;
@@ -124,7 +145,7 @@ export async function deleteTransactionFromFirebase(userId: string, txId: string
   try {
     const { firestore } = initFirebase();
     await deleteDoc(doc(firestore, `users/${userId}/transactions`, txId));
-    console.log('Deleted transaction on firebase:', txId);
+    // console.log('Deleted transaction on firebase:', txId);
   } catch (err) {
     console.warn('Failed delete transaction on firebase', err);
     throw err;
@@ -135,7 +156,7 @@ export async function deleteTransactionModeFromFirebase(userId: string, modeId: 
   try {
     const { firestore } = initFirebase();
     await deleteDoc(doc(firestore, `users/${userId}/transaction_modes`, modeId));
-    console.log('Deleted mode on firebase:', modeId);
+    // console.log('Deleted mode on firebase:', modeId);
   } catch (err) {
     console.warn('Failed delete mode on firebase', err);
     throw err;
@@ -205,7 +226,7 @@ export async function syncBidirectionalData(userId: string): Promise<{ uploaded:
       }
     }
 
-    console.log(`syncBidirectionalData done uploaded=${uploaded} downloaded=${downloaded}`);
+    // console.log(`syncBidirectionalData done uploaded=${uploaded} downloaded=${downloaded}`);
     return { uploaded, downloaded };
   } catch (err) {
     console.error('syncBidirectionalData error', err);

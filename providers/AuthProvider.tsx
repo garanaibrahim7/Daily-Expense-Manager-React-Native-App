@@ -1,16 +1,16 @@
+import { initFirebase } from '@/lib/firebase';
 import createContextHook from '@nkzw/create-context-hook';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   User,
-  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { initFirebase } from '@/lib/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const AUTH_USER_KEY = 'auth_user';
 
@@ -33,7 +33,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const cached = await AsyncStorage.getItem(AUTH_USER_KEY);
         if (cached) {
           const parsed = JSON.parse(cached);
-          console.log('Restoring cached user:', parsed.email);
+          // console.log('Restoring cached user:', parsed.email);
           setUser(parsed as User);
         }
       } catch (err) {
@@ -46,7 +46,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       if (!isMounted) return;
 
-      console.log('Auth state changed:', firebaseUser?.uid);
+      // console.log('Auth state changed:', firebaseUser?.uid);
       setLoading(false);
 
       // If Firebase returns a valid user, update the cache
@@ -63,7 +63,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       } else {
         // ❗ Don't remove cached user immediately
         // Just log the event. Keep session until user signs out manually.
-        console.log('Firebase returned null, keeping cached user');
+        // console.log('Firebase returned null, keeping cached user');
       }
     });
 
@@ -80,9 +80,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!firebase) throw new Error('Firebase not initialized');
 
     try {
-      console.log('Signing in...');
+      // console.log('Signing in...');
       const result = await signInWithEmailAndPassword(firebase.auth, email, password);
-      console.log('Sign in successful:', result.user.uid);
+      // console.log('Sign in successful:', result.user.uid);
       setUser(result.user);
       await AsyncStorage.setItem(
         AUTH_USER_KEY,
@@ -110,7 +110,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!firebase) throw new Error('Firebase not initialized');
 
     try {
-      console.log('Creating account...');
+      // console.log('Creating account...');
       const result = await createUserWithEmailAndPassword(firebase.auth, email, password);
       if (displayName) {
         await updateProfile(result.user, { displayName });
@@ -142,11 +142,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!firebase) throw new Error('Firebase not initialized');
 
     try {
-      console.log('Signing out...');
+      // console.log('Signing out...');
       await firebaseSignOut(firebase.auth);
       await AsyncStorage.removeItem(AUTH_USER_KEY);
       setUser(null);
-      console.log('Signed out successfully');
+      // console.log('Signed out successfully');
     } catch (err: any) {
       console.error('Sign out error:', err);
       setError(err.message);
@@ -161,7 +161,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
     try {
       await sendPasswordResetEmail(firebase.auth, email);
-      console.log('Password reset email sent');
+      // console.log('Password reset email sent');
     } catch (err: any) {
       console.error('Reset password error:', err);
       setError(err.message);

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Daily Expense Manager",
     "slug": "daily-expense-manager",
-    "version": "2.4.7",
+    "version": "3.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dailyexpensemanager",
@@ -37,8 +37,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
-            "image": "./assets/images/icon-dark.png",
-            "backgroundColor": "#000000"
+            "image": "./assets/images/icon.png",
+            "backgroundColor": "#ffffff"
           }
         }
       ]

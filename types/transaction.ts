@@ -9,6 +9,7 @@ export interface TransactionMode {
   icon: string;
   createdAt: number;
   synced: boolean;
+  spendLimit?: number;
 }
 
 // export interface Transaction {
@@ -36,6 +37,7 @@ export interface Transaction {
   createdAt: number;
   updatedAt: number;
   synced: boolean;
+  isExcluded?: boolean;
 }
 
 

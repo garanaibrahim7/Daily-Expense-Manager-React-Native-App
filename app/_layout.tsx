@@ -1,16 +1,36 @@
 // template
+import { AuthProvider, useAuth } from "@/providers/AuthProvider";
+import { TransactionProvider } from "@/providers/TransactionProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { TransactionProvider } from "@/providers/TransactionProvider";
-import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+import { LogBox } from 'react-native';
+const ignoreWarnings = [
+  'ProgressBarAndroid has been extracted',
+  'SafeAreaView has been deprecated',
+  'Clipboard has been extracted',
+  'PushNotificationIOS has been extracted',
+];
+
+LogBox.ignoreLogs(ignoreWarnings);
+
+// Suppress console warnings in terminal
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  const msg = args.join(' ');
+  if (ignoreWarnings.some(w => msg.includes(w))) {
+    return;
+  }
+  originalWarn(...args);
+};
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

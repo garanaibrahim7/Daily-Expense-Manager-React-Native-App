@@ -40,6 +40,15 @@ export default function TabLayout() {
           title: "Transactions",
           tabBarIcon: ({ color }) => <History size={24} color={color} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Note: in Expo Router's deep linking model, navigating to the "params-less" route
+            // might be better achieved by explicitly navigating to the route name with merged params nullified
+            // But navigation.navigate('transactions', { ... }) works in standard React Navigation context inside Expo
+            e.preventDefault();
+            navigation.navigate('transactions', { showChart: 'false' }); // Explicitly set false to clear
+          },
+        })}
       />
       <Tabs.Screen
         name="analysis"

@@ -40,7 +40,7 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <LinearGradient
-        colors={['#271c5aff', '#203a4eff']}
+        colors={['#000000ff', '#001525ff']}
         style={[styles.header, { paddingTop: insets.top + 20 }]}
       >
         <View style={styles.headerContent}>
@@ -87,7 +87,10 @@ export default function DashboardScreen() {
                       onPress={() =>
                         router.push({
                           pathname: '/(tabs)/transactions',
-                          params: { modeId: mode.id, filterType: 'month' },
+                          params: { modeId: mode.id, 
+                                    filterType: 'month', 
+                                    showChart: 'true',
+                                    tabTitle: `Transactions of ${mode.name}` },
                         })
                       }
                     >

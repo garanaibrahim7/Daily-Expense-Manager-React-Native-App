@@ -403,21 +403,10 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
   const syncMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error('User not authenticated');
-      // attempt to upload unsynced rows (same logic as auto sync)
       const state = await NetInfo.fetch();
       if (!state.isConnected) throw new Error('No network connection');
-      // upload unsynced
-      const unsyncedModes = await db.getUnsyncedTransactionModes(userId);
-      for (const m of unsyncedModes) {
-        await firebase.syncTransactionModeToFirebase(userId, m);
-        await db.markTransactionModeSynced(m.id);
-      }
-      const unsyncedTx = await db.getUnsyncedTransactions(userId);
-      for (const t of unsyncedTx) {
-        await firebase.syncTransactionToFirebase(userId, t);
-        await db.markTransactionSynced(t.id);
-      }
-      return true;
+
+      return await firebase.syncBidirectionalData(userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transaction-modes', userId] });

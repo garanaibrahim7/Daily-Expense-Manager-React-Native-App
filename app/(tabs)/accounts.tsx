@@ -3,7 +3,7 @@ import { useTransactions } from '@/providers/TransactionProvider';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
-import { Edit2, LogOut, Plus, Wallet, X } from 'lucide-react-native';
+import { Edit2, LogOut, Plus, RefreshCw, Trash2, Wallet, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -22,7 +22,7 @@ const COLORS = ['#667eea', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'
 const ICONS = ['wallet', 'bank', 'creditcard', 'piggybank'];
 
 export default function AccountsScreen() {
-  const { modes, transactions, addMode, updateMode, isAddingMode } = useTransactions();
+  const { modes, transactions, addMode, updateMode, deleteMode, isAddingMode, sync, isSyncing } = useTransactions();
   const { user, signOut } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMode, setEditingMode] = useState<any>(null);
@@ -110,15 +110,38 @@ export default function AccountsScreen() {
     );
   };
 
+  const handleDeleteMode = () => {
+    if (!editingMode) return;
+
+    Alert.alert(
+      'Delete Account',
+      `Are you sure you want to delete "${editingMode.name}"? This will NOT delete the associated transactions, but they will be orphaned from this account.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteMode(editingMode.id);
+            setShowAddModal(false);
+            if (Platform.OS !== 'web') {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{
         title: 'Manage Accounts',
         headerShown: true,
         statusBarStyle: 'light',
-        headerStyle: { backgroundColor: '#131b31ff' },
-        headerTitleStyle: { color: '#fff' },
-        headerTintColor: '#fff',
+        headerStyle: { backgroundColor: '#ffffffff' },
+        headerTitleStyle: { color: '#000000ff' },
+        headerTintColor: '#000000ff',
       }} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -134,10 +157,27 @@ export default function AccountsScreen() {
               <Text style={styles.userEmail}>{user?.email}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <LogOut size={20} color="#ef4444" />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+          <View style={styles.userActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.syncButton]}
+              onPress={() => sync(undefined, {
+                onSuccess: (data: any) => {
+                  Alert.alert('Sync Success', `Uploaded ${data.uploaded} and downloaded ${data.downloaded} items.`);
+                },
+                onError: (err: any) => {
+                  Alert.alert('Sync Error', err.message || 'Failed to sync data');
+                }
+              })}
+              disabled={isSyncing}
+            >
+              <RefreshCw size={20} color="#667eea" style={isSyncing ? { transform: [{ rotate: '45deg' }] } : {}} />
+              <Text style={styles.syncText}>{isSyncing ? 'Syncing...' : 'Sync Data'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, styles.signOutButton]} onPress={handleSignOut}>
+              <LogOut size={20} color="#ef4444" />
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {modes.length === 0 ? (
           <View style={styles.emptyState}>
@@ -284,20 +324,31 @@ export default function AccountsScreen() {
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={[styles.submitButton, (!name || !initialBalance || isAddingMode) && styles.submitButtonDisabled]}
-                onPress={handleSave}
-                disabled={!name || !initialBalance || isAddingMode}
-              >
-                <LinearGradient
-                  colors={(!name || !initialBalance || isAddingMode) ? ['#ccc', '#999'] : selectedColor ? [selectedColor, selectedColor] : ['#667eea', '#764ba2']}
-                  style={styles.submitButtonGradient}
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                {editingMode && (
+                  <TouchableOpacity
+                    style={[styles.deleteButton]}
+                    onPress={handleDeleteMode}
+                  >
+                    <Trash2 size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.submitButton, (!name || !initialBalance || isAddingMode) && styles.submitButtonDisabled, { flex: 1, marginTop: 0 }]}
+                  onPress={handleSave}
+                  disabled={!name || !initialBalance || isAddingMode}
                 >
-                  <Text style={styles.submitButtonText}>
-                    {isAddingMode ? 'Saving...' : editingMode ? 'Save Changes' : 'Add Account'}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  <LinearGradient
+                    colors={(!name || !initialBalance || isAddingMode) ? ['#ccc', '#999'] : selectedColor ? [selectedColor, selectedColor] : ['#667eea', '#764ba2']}
+                    style={styles.submitButtonGradient}
+                  >
+                    <Text style={styles.submitButtonText}>
+                      {isAddingMode ? 'Saving...' : editingMode ? 'Save Changes' : 'Add Account'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -347,14 +398,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  signOutButton: {
+  userActions: {
+    flexDirection: 'row' as const,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: '#fee2e2',
     padding: 12,
     borderRadius: 12,
     gap: 8,
+  },
+  syncButton: {
+    backgroundColor: '#eef2ff',
+  },
+  syncText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#667eea',
+  },
+  signOutButton: {
+    backgroundColor: '#fee2e2',
   },
   signOutText: {
     fontSize: 16,
@@ -569,5 +635,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  deleteButton: {
+    backgroundColor: '#fee2e2',
+    width: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

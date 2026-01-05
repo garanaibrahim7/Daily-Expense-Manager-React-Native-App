@@ -3,9 +3,10 @@ import { Transaction } from '@/types/transaction';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react-native';
+import { ArrowLeftRight, Calendar, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    Alert,
     Modal,
     Platform,
     ScrollView,
@@ -40,6 +41,10 @@ export default function TransactionModal({
     const [isExcluded, setIsExcluded] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    // Transfer Mode State
+    const [isTransferMode, setIsTransferMode] = useState(false);
+    const [targetModeId, setTargetModeId] = useState('');
+
     // Frequent notes logic
     const frequentNotes = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -64,6 +69,8 @@ export default function TransactionModal({
                 setNote(initialData.note || '');
                 setDate(new Date(initialData.date));
                 setIsExcluded(!!initialData.isExcluded);
+                setIsTransferMode(false); // Edit mode for single transaction only for now
+                setTargetModeId('');
             } else {
                 // Adding
                 setAmount('');
@@ -71,6 +78,8 @@ export default function TransactionModal({
                 setNote('');
                 setDate(new Date());
                 setIsExcluded(false);
+                setIsTransferMode(false);
+                setTargetModeId('');
 
                 // Mode selection logic for adding
                 if (defaultModeId) {
@@ -93,27 +102,63 @@ export default function TransactionModal({
     const handleSubmit = async () => {
         if (!amount || !selectedModeId) return;
 
-        if (initialData) {
-            // Update
-            updateTransaction({
-                id: initialData.id,
-                modeId: selectedModeId,
-                amount: parseFloat(amount),
-                type,
-                note: note || undefined,
-                date: date.getTime(),
-                isExcluded,
-            });
-        } else {
-            // Add
+        if (isTransferMode) {
+            if (!targetModeId) {
+                Alert.alert('Selection Error', 'Please select a target account for transfer.');
+                return;
+            }
+            if (selectedModeId === targetModeId) {
+                Alert.alert('Selection Error', 'Source and Target accounts cannot be the same.');
+                return;
+            }
+
+            const sourceMode = modes.find(m => m.id === selectedModeId);
+            const targetMode = modes.find(m => m.id === targetModeId);
+
+            // 1. Expense from Source
             addTransaction({
                 modeId: selectedModeId,
                 amount: parseFloat(amount),
-                type,
-                note: note || undefined,
+                type: 'out',
+                note: `Transfer to ${targetMode?.name} ${note ? '- ' + note : ''} `,
                 date: date.getTime(),
-                isExcluded,
+                isExcluded: true, // Force excluded
             });
+
+            // 2. Income to Target
+            addTransaction({
+                modeId: targetModeId,
+                amount: parseFloat(amount),
+                type: 'in',
+                note: `Transfer from ${sourceMode?.name} ${note ? '- ' + note : ''} `,
+                date: date.getTime(),
+                isExcluded: true, // Force excluded
+            });
+
+        } else {
+            // Normal Logic
+            if (initialData) {
+                // Update
+                updateTransaction({
+                    id: initialData.id,
+                    modeId: selectedModeId,
+                    amount: parseFloat(amount),
+                    type,
+                    note: note?.trim() || undefined,
+                    date: date.getTime(),
+                    isExcluded,
+                });
+            } else {
+                // Add
+                addTransaction({
+                    modeId: selectedModeId,
+                    amount: parseFloat(amount),
+                    type,
+                    note: note?.trim() || undefined,
+                    date: date.getTime(),
+                    isExcluded,
+                });
+            }
         }
 
         onClose();
@@ -148,43 +193,45 @@ export default function TransactionModal({
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        <View style={styles.typeSelector}>
-                            <TouchableOpacity
-                                style={[styles.typeButton, type === 'in' && styles.inButtonActive]}
-                                onPress={() => {
-                                    setType('in');
-                                    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                }}
-                            >
-                                <TrendingUp size={20} color={type === 'in' ? '#fff' : '#10b981'} />
-                                <Text
-                                    style={[
-                                        styles.typeButtonText,
-                                        type === 'in' && styles.typeButtonTextActive,
-                                    ]}
+                        {!isTransferMode && (
+                            <View style={styles.typeSelector}>
+                                <TouchableOpacity
+                                    style={[styles.typeButton, type === 'in' && styles.inButtonActive]}
+                                    onPress={() => {
+                                        setType('in');
+                                        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    }}
                                 >
-                                    Income
-                                </Text>
-                            </TouchableOpacity>
+                                    <TrendingUp size={20} color={type === 'in' ? '#fff' : '#10b981'} />
+                                    <Text
+                                        style={[
+                                            styles.typeButtonText,
+                                            type === 'in' && styles.typeButtonTextActive,
+                                        ]}
+                                    >
+                                        Income
+                                    </Text>
+                                </TouchableOpacity>
 
-                            <TouchableOpacity
-                                style={[styles.typeButton, type === 'out' && styles.outButtonActive]}
-                                onPress={() => {
-                                    setType('out');
-                                    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                }}
-                            >
-                                <TrendingDown size={20} color={type === 'out' ? '#fff' : '#ef4444'} />
-                                <Text
-                                    style={[
-                                        styles.typeButtonText,
-                                        type === 'out' && styles.typeButtonTextActive,
-                                    ]}
+                                <TouchableOpacity
+                                    style={[styles.typeButton, type === 'out' && styles.outButtonActive]}
+                                    onPress={() => {
+                                        setType('out');
+                                        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    }}
                                 >
-                                    Expense
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                                    <TrendingDown size={20} color={type === 'out' ? '#fff' : '#ef4444'} />
+                                    <Text
+                                        style={[
+                                            styles.typeButtonText,
+                                            type === 'out' && styles.typeButtonTextActive,
+                                        ]}
+                                    >
+                                        Expense
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Date</Text>
@@ -210,7 +257,9 @@ export default function TransactionModal({
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Account</Text>
+                            <Text style={styles.inputLabel}>
+                                {isTransferMode ? 'From Account' : 'Account'}
+                            </Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -253,6 +302,56 @@ export default function TransactionModal({
                             </ScrollView>
                         </View>
 
+                        {isTransferMode && (
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>To Account</Text>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.modeSelector}
+                                    keyboardShouldPersistTaps="handled"
+                                >
+                                    {modes.map((mode) => (
+                                        <TouchableOpacity
+                                            key={mode.id}
+                                            style={[
+                                                styles.modeSelectorItem,
+                                                targetModeId === mode.id && styles.modeSelectorItemActive,
+                                                {
+                                                    borderColor:
+                                                        targetModeId === mode.id ? mode.color : '#e5e5e5',
+                                                },
+                                                targetModeId === mode.id && { backgroundColor: mode.color },
+                                                { borderColor: mode.color },
+                                                // Disable source account in target list?
+                                                selectedModeId === mode.id && { opacity: 0.5 }
+                                            ]}
+                                            onPress={() => {
+                                                if (selectedModeId === mode.id) return; // Prevent same account
+                                                setTargetModeId(mode.id);
+                                                if (Platform.OS !== 'web')
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }}
+                                            disabled={selectedModeId === mode.id}
+                                        >
+                                            <Wallet
+                                                size={16}
+                                                color={targetModeId === mode.id ? '#fff' : mode.color}
+                                            />
+                                            <Text
+                                                style={[
+                                                    styles.modeSelectorText,
+                                                    targetModeId === mode.id && styles.modeSelectorTextActive,
+                                                ]}
+                                            >
+                                                {mode.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Note (Optional)</Text>
                             <TextInput
@@ -282,26 +381,44 @@ export default function TransactionModal({
                             </ScrollView>
                         )}
 
-                        <View style={styles.switchContainer}>
-                            <Text style={styles.switchLabel}>
-                                {initialData ? 'Exclude from Totals' : 'Exclude from Totals'}
-                            </Text>
-                            <Switch
-                                value={isExcluded}
-                                onValueChange={setIsExcluded}
-                                trackColor={{ false: '#767577', true: '#81b0ff' }}
-                                thumbColor={isExcluded ? '#f5dd4b' : '#f4f3f4'}
-                            />
-                        </View>
+                        {!isTransferMode && (
+                            <View style={styles.switchContainer}>
+                                <Text style={styles.switchLabel}>
+                                    {initialData ? 'Exclude from Totals' : 'Exclude from Totals'}
+                                </Text>
+                                <Switch
+                                    value={isExcluded}
+                                    onValueChange={setIsExcluded}
+                                    trackColor={{ false: '#767577', true: '#81b0ff' }}
+                                    thumbColor={isExcluded ? '#f5dd4b' : '#f4f3f4'}
+                                />
+                            </View>
+                        )}
+
+                        {/* Self Transfer Toggle Button (Only for new transactions) */}
+                        {!initialData && (
+                            <TouchableOpacity
+                                style={styles.transferToggleButton}
+                                onPress={() => {
+                                    setIsTransferMode(!isTransferMode);
+                                    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                }}
+                            >
+                                <ArrowLeftRight size={18} color="#667eea" />
+                                <Text style={styles.transferToggleText}>
+                                    {isTransferMode ? 'Switch to Regular Transaction' : 'Self Transfer'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             style={[
                                 styles.submitButton,
-                                (!amount || !selectedModeId || isSubmitting) &&
+                                (!amount || !selectedModeId || isSubmitting || (isTransferMode && !targetModeId)) &&
                                 styles.submitButtonDisabled,
                             ]}
                             onPress={handleSubmit}
-                            disabled={!amount || !selectedModeId || isSubmitting}
+                            disabled={!amount || !selectedModeId || isSubmitting || (isTransferMode && !targetModeId)}
                         >
                             <LinearGradient
                                 colors={
@@ -506,5 +623,22 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: '#333',
+    },
+    transferToggleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        marginBottom: 8,
+        backgroundColor: '#667eea10',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#667eea30',
+    },
+    transferToggleText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#667eea',
     },
 });

@@ -1,18 +1,43 @@
 import * as db from '@/lib/database';
 import * as firebase from '@/lib/firebase';
 import { AnalysisData, AnalysisFilter, Transaction, TransactionMode } from '@/types/transaction';
-import createContextHook from '@nkzw/create-context-hook';
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { endOfMonth, endOfWeek, endOfYear, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
-import { useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { useAuth } from './AuthProvider';
 
 function generateId(): string {
   return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-export const [TransactionProvider, useTransactions] = createContextHook(() => {
+interface TransactionContextType {
+  modes: TransactionMode[];
+  transactions: Transaction[];
+  isLoading: boolean;
+  addMode: (data: { name: string; initialBalance: number; color: string; icon: string; spendLimit?: number }) => void;
+  updateMode: (mode: TransactionMode) => void;
+  deleteMode: (modeId: string) => void;
+  addTransaction: (data: { modeId: string; amount: number; type: 'in' | 'out'; category?: string; note?: string; date?: number; isExcluded?: boolean }) => void;
+  updateTransaction: (data: { id: string; modeId: string; amount: number; type: 'in' | 'out'; category?: string; note?: string; date: number; isExcluded?: boolean }) => void;
+  deleteTransaction: (transactionId: string) => void;
+  sync: (variables?: void, options?: any) => void;
+  isSyncing: boolean;
+  isAddingTransaction: boolean;
+  isAddingMode: boolean;
+}
+
+const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
+
+export function useTransactions() {
+  const context = useContext(TransactionContext);
+  if (context === undefined) {
+    throw new Error('useTransactions must be used within a TransactionProvider');
+  }
+  return context;
+}
+
+export function TransactionProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = user?.uid || '';
@@ -23,9 +48,6 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
 
   /**********************
    *  ON LOGIN: ONE-TIME BACKUP PULL
-   *
-   *  If local DB is empty (no modes & no transactions) -> fetch from Firebase and upsert locally.
-   *  This is a one-time action after login. We DO NOT continuously mirror remote.
    **********************/
   useEffect(() => {
     if (!userId) return;
@@ -41,7 +63,6 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
 
         if ((localModes?.length ?? 0) === 0 && (localTxs?.length ?? 0) === 0) {
           // only if local DB empty -> do backup from Firebase once
-          // console.log('Local DB empty → pulling backup from Firebase...');
           const [remoteModes, remoteTxs] = await Promise.all([
             firebase.fetchAllTransactionModes(userId),
             firebase.fetchAllTransactions(userId),
@@ -60,8 +81,6 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
             queryClient.invalidateQueries({ queryKey: ['transaction-modes', userId] });
             queryClient.invalidateQueries({ queryKey: ['transactions', userId] });
           }
-        } else {
-          // console.log('Local DB not empty → skipping initial backup pull.');
         }
       } catch (err) {
         console.error('Initial backup pull failed', err);
@@ -72,9 +91,7 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
   }, [userId]);
 
   /**********************
-   *  AUTO SYNC (uploads unsynced rows when online)
-   *  - Start on login
-   *  - Re-run on network reconnect
+   *  AUTO SYNC
    **********************/
   useEffect(() => {
     if (!userId) return;
@@ -82,12 +99,9 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
 
     const trySync = async () => {
       try {
-        // only attempt upload if connected
         const state = await NetInfo.fetch();
         if (!state.isConnected) return;
 
-        // console.log('Network online — attempting to upload unsynced rows...');
-        // upload unsynced transaction_modes and transactions
         const unsyncedModes = await db.getUnsyncedTransactionModes(userId);
         for (const m of unsyncedModes) {
           try {
@@ -117,10 +131,8 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
       }
     };
 
-    // run once on login
     trySync();
 
-    // subscribe for reconnects to attempt sync
     const unsubscribe = NetInfo.addEventListener(state => {
       if (state.isConnected) {
         trySync();
@@ -159,9 +171,7 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
   });
 
   /**********************
-   *  MUTATIONS (LOCAL-FIRST)
-   *  - Add/Update: write to SQLite and set synced=0 (db functions do that).
-   *  - Delete: only allowed if online; otherwise throw.
+   *  MUTATIONS
    **********************/
   const addModeMutation = useMutation({
     mutationFn: async (data: { name: string; initialBalance: number; color: string; icon: string; spendLimit?: number }) => {
@@ -177,12 +187,11 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
         synced: false,
         spendLimit: data.spendLimit || 0,
       };
-      await db.insertTransactionMode(userId, mode); // sets synced=0 locally
+      await db.insertTransactionMode(userId, mode);
       return mode;
     },
     onSuccess: async (mode) => {
       queryClient.invalidateQueries({ queryKey: ['transaction-modes', userId] });
-      // best-effort immediate upload if online (auto sync effect will cover it otherwise)
       const state = await NetInfo.fetch();
       if (state.isConnected) {
         try {
@@ -198,7 +207,6 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
 
   const updateModeMutation = useMutation({
     mutationFn: async (mode: TransactionMode) => {
-      // mark as unsynced (db function should set synced flag properly)
       await db.updateTransactionMode({ ...mode, synced: false });
       return mode;
     },
@@ -218,15 +226,10 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
   const deleteModeMutation = useMutation({
     mutationFn: async (modeId: string) => {
       if (!userId) throw new Error('User not authenticated');
-      // delete locally immediately
       await db.deleteTransactionMode(modeId);
-      // best-effort remote delete; if offline, it will remain remote until you manually delete in console
       const state = await NetInfo.fetch();
       if (state.isConnected) {
         await firebase.deleteTransactionModeFromFirebase(userId, modeId).catch(() => { });
-      } else {
-        // optional: you can queue deletes differently. For now we do not allow local delete fallback (per spec you said no special table)
-        // We already deleted locally; if you want to block delete when offline, throw instead above.
       }
     },
     onSuccess: () => {
@@ -260,13 +263,11 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
         isExcluded: data.isExcluded,
       };
 
-      // write locally and update mode balance locally (db functions do this and mark synced=0)
       await db.insertTransaction(userId, transaction);
 
-      // Check Spend Limit (Monthly)
       if (transaction.type === 'out' && !transaction.isExcluded) {
         const currentModes = modesQuery.data || [];
-        const mode = currentModes.find(m => m.id === data.modeId); // Use data.modeId or transaction.modeId
+        const mode = currentModes.find(m => m.id === data.modeId);
 
         if (mode && mode.spendLimit && mode.spendLimit > 0) {
           const txDate = new Date(transaction.date);
@@ -289,7 +290,6 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
       queryClient.invalidateQueries({ queryKey: ['transactions', userId] });
       queryClient.invalidateQueries({ queryKey: ['transaction-modes', userId] });
 
-      // immediate best-effort upload if online
       const state = await NetInfo.fetch();
       if (state.isConnected) {
         try {
@@ -324,32 +324,24 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
         category: data.category,
         note: data.note,
         date: data.date,
-        // We don't know the original createdAt here without fetching, but updateTransaction util
-        // doesn't touch createdAt, so 0 is safe-ish for local update logic as long as types allow.
-        // Ideally we should have passed it, but for now this fixes the syntax error.
         createdAt: 0,
         updatedAt: Date.now(),
         synced: false,
         isExcluded: data.isExcluded,
       };
 
-      // update locally; database.updateTransaction(userId, ...) should revert old effect and apply new
       await db.updateTransaction(userId, tx);
 
-      // Check Spend Limit (Monthly)
       if (tx.type === 'out' && !tx.isExcluded) {
         const currentModes = modesQuery.data || [];
         const mode = currentModes.find(m => m.id === data.modeId);
 
         if (mode && mode.spendLimit && mode.spendLimit > 0) {
-          // Helper to get ranges
           const txDate = new Date(data.date);
           const start = new Date(txDate.getFullYear(), txDate.getMonth(), 1).getTime();
           const end = new Date(txDate.getFullYear(), txDate.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
 
           const currentTotal = await db.getModeMonthlySpending(userId, data.modeId, start, end);
-          // Note context: getModeMonthlySpending queries DB. 
-          // Since we just did insert/update, this query INCLUDES the current transaction.
 
           if (currentTotal >= mode.spendLimit * 0.9) {
             import('react-native').then(({ Alert }) => {
@@ -376,18 +368,15 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
     },
   });
 
-
   const deleteTransactionMutation = useMutation({
     mutationFn: async (transactionId: string) => {
       if (!userId) throw new Error('User not authenticated');
 
       const state = await NetInfo.fetch();
       if (!state.isConnected) {
-        // rule #5: if connection not available then don't delete locally — throw so UI can show message
         throw new Error('No network connection — cannot delete. Please connect to internet.');
       }
 
-      // when online: delete locally and remotely
       await db.deleteTransaction(userId, transactionId);
       await firebase.deleteTransactionFromFirebase(userId, transactionId).catch(() => { });
     },
@@ -397,9 +386,6 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
     },
   });
 
-  /**********************
-   *  Manual sync trigger (optional)
-   **********************/
   const syncMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error('User not authenticated');
@@ -414,10 +400,7 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
     },
   });
 
-  /**********************
-   *  Return context
-   **********************/
-  return useMemo(() => ({
+  const value = useMemo(() => ({
     modes: modesQuery.data || [],
     transactions: transactionsQuery.data || [],
     isLoading: modesQuery.isLoading || transactionsQuery.isLoading,
@@ -450,9 +433,10 @@ export const [TransactionProvider, useTransactions] = createContextHook(() => {
     addTransactionMutation.isPending,
     addModeMutation.isPending,
   ]);
-});
 
-/* Filtering & analysis helpers can remain unchanged (reuse your existing code) */
+  return <TransactionContext.Provider value={value}>{children}</TransactionContext.Provider>;
+}
+
 export function useFilteredTransactions(startDate?: number, endDate?: number, modeIds?: string[]) {
   const { transactions } = useTransactions();
   return transactions.filter(t => {

@@ -2,21 +2,29 @@ import { Tabs } from "expo-router";
 import { BarChart3, History, Home, Wallet } from "lucide-react-native";
 import React from "react";
 
+import { useThemeColor } from '@/hooks/use-theme-color';
+
 export default function TabLayout() {
+  const tintColor = useThemeColor({}, 'tint');
+  const backgroundColor = useThemeColor({}, 'surface');
+  const borderTopColor = useThemeColor({}, 'textSecondary') + '20'; // Transparent border
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#20379eff',
+        tabBarActiveTintColor: tintColor,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: backgroundColor,
           borderTopWidth: 1,
-          borderTopColor: '#e5e5e5',
+          borderTopColor: borderTopColor,
           height: 80,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
+          marginBottom: 8,
         },
       }}
     >

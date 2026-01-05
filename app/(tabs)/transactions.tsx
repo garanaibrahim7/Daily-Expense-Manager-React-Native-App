@@ -1,5 +1,8 @@
 import EntriesComponent from '@/components/EntriesComponent';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
 import TransactionModal from '@/components/TransactionModal';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useTransactions } from '@/providers/TransactionProvider';
 import { Transaction } from '@/types/transaction';
 import * as Haptics from 'expo-haptics';
@@ -11,7 +14,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +21,9 @@ import {
 export default function HistoryScreen() {
   const { modes, deleteTransaction } = useTransactions();
   const params = useLocalSearchParams();
+  const backgroundColor = useThemeColor({}, 'background');
+  const surfaceColor = useThemeColor({}, 'surface');
+  const tintColor = useThemeColor({}, 'tint');
 
   const [selectedModeId, setSelectedModeId] = useState<string | null>(null);
 
@@ -72,79 +77,99 @@ export default function HistoryScreen() {
   const tabTitle = params.tabTitle as string | undefined;
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
       <Stack.Screen
         options={{
-          title: tabTitle || 'Transaction History',
+          title: 'Entries',
           headerShown: true,
-          statusBarStyle: 'light',
-          headerStyle: { backgroundColor: '#ffffffff' },
-          headerTitleStyle: { color: '#000000ff' },
-          headerTintColor: '#000000ff',
+          statusBarStyle: 'light', // Typically dark background for header in premium apps? Or match theme.
+          headerStyle: { backgroundColor: surfaceColor },
+          headerTitleStyle: { color: useThemeColor({}, 'text') },
+          headerTintColor: tintColor,
+          headerShadowVisible: false, // Cleaner
         }}
       />
 
-      {/* Mode Filter - Keep visible as per requirement, unless blocked by design? 
-          "history tab should looks as it is, just keep accounts filter and then display entries component below"
-      */}
+      {/* Mode Filter */}
       {!showChart && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.modeFilterBar}
-          contentContainerStyle={styles.modeFilterBarContent}
-        >
-          <TouchableOpacity
-            style={[
-              styles.modeFilterItem,
-              !selectedModeId && {
-                backgroundColor: '#667eea20',
-                borderColor: '#667eea',
-              },
-            ]}
-            onPress={() => setSelectedModeId(null)}
+        <View style={{ backgroundColor: surfaceColor, paddingBottom: 12, paddingTop: 12 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.modeFilterBar}
+            contentContainerStyle={styles.modeFilterBarContent}
           >
-            <Text style={{ color: '#667eea', fontWeight: '600' }}>
-              All Accounts
-            </Text>
-          </TouchableOpacity>
-
-          {modes.map((mode) => (
             <TouchableOpacity
-              key={mode.id}
+              activeOpacity={0.7}
               style={[
                 styles.modeFilterItem,
-                selectedModeId === mode.id && {
-                  backgroundColor: mode.color,
-                  borderColor: mode.color,
+                !selectedModeId && {
+                  backgroundColor: tintColor,
+                  borderColor: tintColor,
+                  elevation: 4,
+                  shadowColor: tintColor,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
                 },
+                selectedModeId && {
+                  backgroundColor: surfaceColor,
+                  borderColor: useThemeColor({}, 'textSecondary') + '20',
+                  borderWidth: 1,
+                }
               ]}
-              onPress={() =>
-                setSelectedModeId(selectedModeId === mode.id ? null : mode.id)
-              }
+              onPress={() => setSelectedModeId(null)}
             >
-              <Wallet
-                size={14}
-                color={selectedModeId === mode.id ? '#fff' : mode.color}
-              />
-              <Text
-                style={[
-                  styles.modeFilterText,
-                  selectedModeId === mode.id && { color: '#fff' },
-                ]}
-              >
-                {mode.name}
-              </Text>
+              <ThemedText style={{ color: !selectedModeId ? '#fff' : useThemeColor({}, 'textSecondary'), fontWeight: '700', fontSize: 13 }}>
+                All
+              </ThemedText>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+
+            {modes.map((mode) => (
+              <TouchableOpacity
+                key={mode.id}
+                activeOpacity={0.7}
+                style={[
+                  styles.modeFilterItem,
+                  selectedModeId === mode.id && {
+                    backgroundColor: mode.color,
+                    borderColor: mode.color,
+                    elevation: 4,
+                    shadowColor: mode.color,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
+                  },
+                  selectedModeId !== mode.id && {
+                    backgroundColor: surfaceColor,
+                    borderColor: useThemeColor({}, 'textSecondary') + '20',
+                    borderWidth: 1,
+                  }
+                ]}
+                onPress={() =>
+                  setSelectedModeId(selectedModeId === mode.id ? null : mode.id)
+                }
+              >
+                <Wallet
+                  size={14}
+                  color={selectedModeId === mode.id ? '#fff' : mode.color}
+                />
+                <ThemedText
+                  style={[
+                    styles.modeFilterText,
+                    selectedModeId === mode.id && { color: '#fff' },
+                    selectedModeId !== mode.id && { color: useThemeColor({}, 'textSecondary') }
+                  ]}
+                >
+                  {mode.name}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
       {/* Content - Entries Component */}
-      {/* 
-         If showChart is true (from Home), we enable it in EntriesComponent.
-         EntriesComponent handles the list and date filters. 
-      */}
       <View style={styles.content}>
         <EntriesComponent
           modeId={selectedModeId}
@@ -163,29 +188,27 @@ export default function HistoryScreen() {
         onClose={() => setEditingTransaction(null)}
         initialData={editingTransaction}
       />
-    </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  modeFilterBar: { backgroundColor: '#fff', maxHeight: 50, zIndex: 10 },
+  container: { flex: 1 },
+  modeFilterBar: { maxHeight: 50, zIndex: 10 },
   modeFilterBarContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 5,
   },
   modeFilterItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1.5,
-    borderRadius: 16,
-    marginRight: 8,
-    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    marginRight: 10,
   },
-  modeFilterText: { fontSize: 13, fontWeight: '600', marginLeft: 5 },
-  content: { flex: 1, backgroundColor: '#f5f5f5' },
+  modeFilterText: { fontSize: 13, fontWeight: '600', marginLeft: 6 },
+  content: { flex: 1 },
 });

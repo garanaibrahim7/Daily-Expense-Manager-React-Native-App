@@ -1,5 +1,4 @@
 import { initFirebase } from '@/lib/firebase';
-import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   User,
@@ -10,19 +9,47 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const AUTH_USER_KEY = 'auth_user';
 
-export const [AuthProvider, useAuth] = createContextHook(() => {
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  signIn: (email: string, password: string) => Promise<User>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<User>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  isAuthenticated: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+
+  const instanceId = useMemo(() => Math.random().toString(36).substr(2, 5), []);
+  console.log(`[AuthProvider:${instanceId}] Rendering...`);
+
   useEffect(() => {
     let isMounted = true;
+    console.log(`[AuthProvider:${instanceId}] Mounting effect...`);
     const firebase = initFirebase();
+    // ... rest of effect
     if (!firebase) {
+      console.error('[AuthProvider] Firebase not configured');
       setError('Firebase not configured properly');
       setLoading(false);
       return;
@@ -33,7 +60,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const cached = await AsyncStorage.getItem(AUTH_USER_KEY);
         if (cached) {
           const parsed = JSON.parse(cached);
-          // console.log('Restoring cached user:', parsed.email);
+          console.log('[AuthProvider] Restored cached user:', parsed.email);
           setUser(parsed as User);
         }
       } catch (err) {
@@ -46,10 +73,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       if (!isMounted) return;
 
-      // console.log('Auth state changed:', firebaseUser?.uid);
+      console.log('[AuthProvider] Auth state changed:', firebaseUser?.email);
       setLoading(false);
 
-      // If Firebase returns a valid user, update the cache
       if (firebaseUser) {
         setUser(firebaseUser);
         await AsyncStorage.setItem(
@@ -61,9 +87,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           })
         );
       } else {
-        // ❗ Don't remove cached user immediately
-        // Just log the event. Keep session until user signs out manually.
-        // console.log('Firebase returned null, keeping cached user');
+        // preserve cache or handle consistent logout?
+        // Matching original logic: don't clear explicitly here unless signout called?
+        // actually original logic said "Don't remove cached user immediately"
       }
     });
 
@@ -73,16 +99,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     };
   }, []);
 
-  /** ---------- AUTH ACTIONS ---------- */
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
     const firebase = initFirebase();
     if (!firebase) throw new Error('Firebase not initialized');
 
     try {
-      // console.log('Signing in...');
       const result = await signInWithEmailAndPassword(firebase.auth, email, password);
-      // console.log('Sign in successful:', result.user.uid);
+      console.log('[AuthProvider] Sign in success');
       setUser(result.user);
       await AsyncStorage.setItem(
         AUTH_USER_KEY,
@@ -110,7 +134,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!firebase) throw new Error('Firebase not initialized');
 
     try {
-      // console.log('Creating account...');
       const result = await createUserWithEmailAndPassword(firebase.auth, email, password);
       if (displayName) {
         await updateProfile(result.user, { displayName });
@@ -142,11 +165,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!firebase) throw new Error('Firebase not initialized');
 
     try {
-      // console.log('Signing out...');
       await firebaseSignOut(firebase.auth);
       await AsyncStorage.removeItem(AUTH_USER_KEY);
       setUser(null);
-      // console.log('Signed out successfully');
     } catch (err: any) {
       console.error('Sign out error:', err);
       setError(err.message);
@@ -161,7 +182,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
     try {
       await sendPasswordResetEmail(firebase.auth, email);
-      // console.log('Password reset email sent');
     } catch (err: any) {
       console.error('Reset password error:', err);
       setError(err.message);
@@ -169,7 +189,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, []);
 
-  return useMemo(
+  const value = useMemo(
     () => ({
       user,
       loading,
@@ -182,4 +202,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }),
     [user, loading, error, signIn, signUp, signOut, resetPassword]
   );
-});
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

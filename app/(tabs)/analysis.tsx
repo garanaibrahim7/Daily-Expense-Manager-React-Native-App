@@ -1,13 +1,19 @@
 import ChartComponent from '@/components/ChartComponent';
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { Card } from '@/components/ui/Card';
+import { Colors } from '@/constants/theme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useFilteredTransactions, useTransactions } from '@/providers/TransactionProvider';
 import { endOfMonth, endOfYear, startOfMonth, startOfYear, subMonths } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 import { Stack, useRouter } from 'expo-router';
 import { TrendingDown, TrendingUp, Wallet } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,6 +24,8 @@ function AccountInsights() {
   const router = useRouter();
   const { modes } = useTransactions();
   const now = new Date();
+
+  const textSecondaryColor = useThemeColor({}, 'textSecondary');
 
   // Current Month Range
   const curStart = startOfMonth(now).getTime();
@@ -51,18 +59,18 @@ function AccountInsights() {
         diff,
         percent
       };
-    }).filter(i => i.curSpend > 0 || i.prevSpend > 0); // Only show active accounts
+    }).filter(i => i.curSpend > 0 || i.prevSpend > 0);
   }, [modes, curTransactions, prevTransactions]);
 
   if (insights.length === 0) return null;
 
   return (
     <View style={styles.insightsContainer}>
-      <Text style={styles.sectionTitle}>Monthly Spending Insights</Text>
+      <ThemedText style={styles.sectionTitle}>Monthly Spending Insights</ThemedText>
       {insights.map(({ mode, curSpend, diff, percent }) => (
         <TouchableOpacity
           key={mode.id}
-          style={styles.insightCard}
+          activeOpacity={0.7}
           onPress={() => {
             router.push({
               pathname: '/(tabs)/transactions',
@@ -77,38 +85,40 @@ function AccountInsights() {
             });
           }}
         >
-          <View style={styles.insightHeader}>
-            <View style={[styles.modeIcon, { backgroundColor: mode.color + '20' }]}>
-              <Wallet size={16} color={mode.color} />
+          <Card variant="elevated" style={styles.insightCard}>
+            <View style={styles.insightHeader}>
+              <View style={[styles.modeIcon, { backgroundColor: mode.color + '20' }]}>
+                <Wallet size={16} color={mode.color} />
+              </View>
+              <ThemedText style={styles.insightModeName}>{mode.name}</ThemedText>
             </View>
-            <Text style={styles.insightModeName}>{mode.name}</Text>
-          </View>
 
-          <View style={styles.insightContent}>
-            <Text style={styles.insightAmount}>₹{curSpend.toFixed(0)}</Text>
-            <View style={styles.insightBadge}>
-              {diff > 0 ? (
-                <View style={[styles.badgeContainer, { backgroundColor: '#fee2e2' }]}>
-                  <TrendingUp size={12} color="#ef4444" />
-                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                    +{Math.abs(percent).toFixed(0)}% (₹{Math.abs(diff).toFixed(0)})
-                  </Text>
-                </View>
-              ) : diff < 0 ? (
-                <View style={[styles.badgeContainer, { backgroundColor: '#d1fae5' }]}>
-                  <TrendingDown size={12} color="#10b981" />
-                  <Text style={[styles.badgeText, { color: '#10b981' }]}>
-                    -{Math.abs(percent).toFixed(0)}% (₹{Math.abs(diff).toFixed(0)})
-                  </Text>
-                </View>
-              ) : (
-                <View style={[styles.badgeContainer, { backgroundColor: '#f3f4f6' }]}>
-                  <Text style={[styles.badgeText, { color: '#6b7280' }]}>Same as last month</Text>
-                </View>
-              )}
+            <View style={styles.insightContent}>
+              <ThemedText style={styles.insightAmount}>₹{curSpend.toFixed(0)}</ThemedText>
+              <View style={styles.insightBadge}>
+                {diff > 0 ? (
+                  <View style={[styles.badgeContainer, { backgroundColor: Colors.light.error + '20' }]}>
+                    <TrendingUp size={12} color={Colors.light.error} />
+                    <ThemedText style={[styles.badgeText, { color: Colors.light.error }]}>
+                      +{Math.abs(percent).toFixed(0)}% (₹{Math.abs(diff).toFixed(0)})
+                    </ThemedText>
+                  </View>
+                ) : diff < 0 ? (
+                  <View style={[styles.badgeContainer, { backgroundColor: Colors.light.success + '20' }]}>
+                    <TrendingDown size={12} color={Colors.light.success} />
+                    <ThemedText style={[styles.badgeText, { color: Colors.light.success }]}>
+                      -{Math.abs(percent).toFixed(0)}% (₹{Math.abs(diff).toFixed(0)}) - Last Month
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <View style={[styles.badgeContainer, { backgroundColor: textSecondaryColor + '10' }]}>
+                    <ThemedText style={[styles.badgeText, { color: textSecondaryColor }]}>Same as last month</ThemedText>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-          <Text style={styles.insightFooter}>vs. Last Month</Text>
+            <ThemedText style={styles.insightFooter}>This Month</ThemedText>
+          </Card>
         </TouchableOpacity>
       ))}
     </View>
@@ -117,6 +127,10 @@ function AccountInsights() {
 
 export default function AnalysisScreen() {
   const [durationType, setDurationType] = useState<DurationType>('monthly');
+
+  const backgroundColor = useThemeColor({}, 'background');
+  const surfaceColor = useThemeColor({}, 'surface');
+  const tintColor = useThemeColor({}, 'tint');
 
   const getDateRange = () => {
     const now = new Date();
@@ -135,43 +149,33 @@ export default function AnalysisScreen() {
   const transactions = useFilteredTransactions(startDate, endDate);
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
       <Stack.Screen options={{
         title: 'Analysis',
         headerShown: true,
         statusBarStyle: 'light',
-        headerStyle: { backgroundColor: '#ffffffff' },
-        headerTitleStyle: { color: '#000000ff' },
-        headerTintColor: '#000000ff',
+        headerStyle: { backgroundColor: surfaceColor },
+        headerTitleStyle: { color: useThemeColor({}, 'text') },
+        headerTintColor: tintColor,
+        headerShadowVisible: false,
       }} />
 
-      <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={[styles.filterButton, durationType === 'weekly' && styles.filterButtonActive]}
+      <View style={[styles.filterBar, { backgroundColor: surfaceColor, paddingBottom: 12, paddingTop: 12 }]}>
+        <FilterOption
+          label="Last 7 Days"
+          active={durationType === 'weekly'}
           onPress={() => setDurationType('weekly')}
-        >
-          <Text style={[styles.filterButtonText, durationType === 'weekly' && styles.filterButtonTextActive]}>
-            Last 7 Days
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, durationType === 'monthly' && styles.filterButtonActive]}
+        />
+        <FilterOption
+          label="This Month"
+          active={durationType === 'monthly'}
           onPress={() => setDurationType('monthly')}
-        >
-          <Text style={[styles.filterButtonText, durationType === 'monthly' && styles.filterButtonTextActive]}>
-            This Month
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, durationType === 'yearly' && styles.filterButtonActive]}
+        />
+        <FilterOption
+          label="This Year"
+          active={durationType === 'yearly'}
           onPress={() => setDurationType('yearly')}
-        >
-          <Text style={[styles.filterButtonText, durationType === 'yearly' && styles.filterButtonTextActive]}>
-            This Year
-          </Text>
-        </TouchableOpacity>
+        />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -185,43 +189,70 @@ export default function AnalysisScreen() {
         <AccountInsights />
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </ThemedView>
+  );
+}
+
+const FilterOption = function ({ label, active, onPress }: any) {
+  const tint = useThemeColor({}, 'tint');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const surface = useThemeColor({}, 'surface');
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      style={[
+        styles.filterButton,
+        active && {
+          backgroundColor: tint,
+          borderColor: tint,
+          elevation: 4,
+          shadowColor: tint,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
+        },
+        !active && {
+          backgroundColor: surface,
+          borderColor: textSecondary + '20',
+          borderWidth: 1,
+        }
+      ]}
+      onPress={() => {
+        onPress();
+        if (Platform.OS !== 'web') Haptics.selectionAsync();
+      }}
+    >
+      <ThemedText style={[
+        styles.filterButtonText,
+        active ? { color: '#fff' } : { color: textSecondary }
+      ]}>
+        {label}
+      </ThemedText>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   filterBar: {
     flexDirection: 'row',
     padding: 16,
     gap: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
   },
   filterButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#727479ff',
-    backgroundColor: '#ffffffff',
+    borderRadius: 24,
     alignItems: 'center',
-  },
-  filterButtonActive: {
-    backgroundColor: '#161e3fff',
-    borderColor: '#161e3fff',
+    justifyContent: 'center',
   },
   filterButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#636364ff',
-  },
-  filterButtonTextActive: {
-    color: '#fff',
   },
   content: {
     flex: 1,
@@ -229,6 +260,7 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     marginBottom: 20,
+    marginHorizontal: -4, // Counteract padding slightly if needed or just fit
   },
   insightsContainer: {
     gap: 12,
@@ -236,18 +268,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   insightCard: {
-    backgroundColor: '#fff',
     padding: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   insightHeader: {
     flexDirection: 'row',
@@ -265,7 +289,6 @@ const styles = StyleSheet.create({
   insightModeName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
   },
   insightContent: {
     flexDirection: 'row',
@@ -276,7 +299,6 @@ const styles = StyleSheet.create({
   insightAmount: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#333',
   },
   insightBadge: {
     flexDirection: 'row',
@@ -296,6 +318,7 @@ const styles = StyleSheet.create({
   },
   insightFooter: {
     fontSize: 12,
-    color: '#999',
+    opacity: 0.5,
+    marginTop: 4,
   },
 });

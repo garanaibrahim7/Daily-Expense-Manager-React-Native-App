@@ -1,7 +1,22 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Colors } from '@/constants/theme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/providers/AuthProvider';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
@@ -12,7 +27,12 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  console.log('[LoginScreen] calling useAuth...');
   const { signIn, signUp } = useAuth();
+  console.log('[LoginScreen] useAuth success');
+
+  const tintColor = useThemeColor({}, 'tint');
+  const backgroundColor = useThemeColor({}, 'background');
 
   const handleSubmit = async () => {
     if (!email || !password) {
@@ -51,7 +71,7 @@ export default function LoginScreen() {
         message = 'Invalid email or password';
       } else if (error.code === 'auth/configuration-not-found') {
         message = 'Firebase Authentication not enabled.\n\nPlease enable Email/Password authentication in Firebase Console:\n\n1. Go to Firebase Console\n2. Click Authentication → Sign-in method\n3. Enable Email/Password\n4. Save and try again';
-        Alert.alert('Error', message); // Keep alert for configuration error as it's long
+        Alert.alert('Error', message);
         return;
       }
 
@@ -62,105 +82,108 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}
-        keyboardShouldPersistTaps="handled"
+    <ThemedView style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Image
-              source={require('../assets/images/icon.png')} // path to your local image
-              style={styles.icon}
-            />
-          </View>
-          <Text style={styles.title}>Daily Expense Manager</Text>
-          <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
-          </Text>
-          <Text style={{ fontSize: 12, color: '#c47f00ff' }}>Powered by Firebase</Text>
-        </View>
-
-        <View style={styles.form}>
-          {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
-          {isSignUp && (
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Display Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your name"
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-                editable={!loading}
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.header}>
+            <View style={[styles.iconContainer, { backgroundColor: tintColor + '15' }]}>
+              <Image
+                source={require('../assets/images/icon.png')}
+                style={styles.icon}
+                resizeMode="contain"
               />
             </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!loading}
-            />
+            <ThemedText type="title" style={styles.title}>Daily Expense Manager</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              {isSignUp ? 'Create your account' : 'Sign in to your account'}
+            </ThemedText>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete={isSignUp ? 'password-new' : 'password'}
-              editable={!loading}
-            />
+          <Card variant="elevated" style={styles.formCard}>
+            {authError ? (
+              <View style={[styles.errorContainer, { backgroundColor: Colors.light.error + '15' }]}>
+                <ThemedText style={{ color: Colors.light.error, textAlign: 'center' }}>{authError}</ThemedText>
+              </View>
+            ) : null}
+
+            <View style={styles.form}>
+              {isSignUp && (
+                <Input
+                  label="Display Name"
+                  placeholder="Enter your name"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  editable={!loading}
+                />
+              )}
+
+              <Input
+                label="Email"
+                placeholder="Enter your email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!loading}
+              />
+
+              <Input
+                label="Password"
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete={isSignUp ? 'password-new' : 'password'}
+                editable={!loading}
+              />
+
+              <Button
+                variant="primary"
+                onPress={handleSubmit}
+                loading={loading}
+                style={{ marginTop: 8 }}
+              >
+                {isSignUp ? 'Sign Up' : 'Sign In'}
+              </Button>
+
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <ThemedText style={styles.dividerText}>OR</ThemedText>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  setIsSignUp(!isSignUp);
+                  setAuthError('');
+                }}
+                disabled={loading}
+              >
+                {isSignUp ? 'Already have an account? Sign In' : 'Don\'t have an account? Sign Up'}
+              </Button>
+            </View>
+          </Card>
+
+          <View style={{ marginTop: 24, alignItems: 'center' }}>
+            <ThemedText style={{ fontSize: 12, opacity: 0.5 }}>Powered by Firebase</ThemedText>
           </View>
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Please wait...' : (isSignUp ? 'Sign Up' : 'Sign In')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={() => {
-              setIsSignUp(!isSignUp);
-              setAuthError('');
-            }}
-            disabled={loading}
-          >
-            <Text style={styles.switchButtonText}>
-              {isSignUp ? 'Already have an account? Sign In' : 'Don\'t have an account? Sign Up'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView >
+        </ScrollView>
+      </KeyboardAvoidingView >
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -168,90 +191,53 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
   },
   iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#b2dcff5e',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
+  icon: {
+    width: 120,
+    height: 120, // Icon might be larger than container but contained
+  },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#111827',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  formCard: {
+    padding: 24,
+    borderRadius: 24,
   },
   form: {
     gap: 16,
   },
-  inputContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+  errorContainer: {
+    padding: 12,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
+    marginBottom: 16,
   },
-  button: {
-    backgroundColor: '#1075b9ff',
-    borderRadius: 12,
-    paddingVertical: 16,
+  divider: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#107bb9ff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginVertical: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e5e5', // Theme adaptation handling?
   },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  switchButtonText: {
-    color: '#105fb9ff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  icon: {
-    width: 120,
-    height: 120,
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
-    backgroundColor: '#fee2e2',
-    padding: 10,
-    borderRadius: 8,
-    overflow: 'hidden',
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 12,
+    opacity: 0.5,
   },
 });

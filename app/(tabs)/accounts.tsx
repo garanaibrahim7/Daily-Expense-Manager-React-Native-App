@@ -1,9 +1,17 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Colors } from '@/constants/theme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/providers/AuthProvider';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useTransactions } from '@/providers/TransactionProvider';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
-import { Edit2, LogOut, Plus, RefreshCw, Trash2, Wallet, X } from 'lucide-react-native';
+import { Edit2, Moon, Plus, Settings, Sun, Trash2, Wallet, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -12,8 +20,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,6 +30,8 @@ const ICONS = ['wallet', 'bank', 'creditcard', 'piggybank'];
 export default function AccountsScreen() {
   const { modes, transactions, addMode, updateMode, deleteMode, isAddingMode, sync, isSyncing } = useTransactions();
   const { user, signOut } = useAuth();
+  const { themePreference, setThemePreference } = useTheme();
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMode, setEditingMode] = useState<any>(null);
   const [name, setName] = useState('');
@@ -32,8 +40,11 @@ export default function AccountsScreen() {
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState(ICONS[0]);
 
+  const tintColor = useThemeColor({}, 'tint');
+  const surfaceColor = useThemeColor({}, 'surface');
+  const textColor = useThemeColor({}, 'text');
+
   const handleOpenAddModal = () => {
-    setName('');
     setName('');
     setInitialBalance('');
     setSpendLimit('');
@@ -47,7 +58,6 @@ export default function AccountsScreen() {
   };
 
   const handleOpenEditModal = (mode: any) => {
-    setName(mode.name);
     setName(mode.name);
     setInitialBalance(mode.initialBalance.toString());
     setSpendLimit(mode.spendLimit ? mode.spendLimit.toString() : '');
@@ -133,80 +143,132 @@ export default function AccountsScreen() {
     );
   };
 
+  const ThemeOption = ({ label, value, icon }: { label: string, value: 'light' | 'dark' | 'system', icon: any }) => {
+    const isActive = themePreference === value;
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={[
+          styles.themeOption,
+          isActive && {
+            backgroundColor: tintColor,
+            borderColor: tintColor,
+            elevation: 4,
+            shadowColor: tintColor,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+          },
+          !isActive && {
+            backgroundColor: surfaceColor,
+            borderWidth: 1,
+            borderColor: useThemeColor({}, 'textSecondary') + '30',
+          }
+        ]}
+        onPress={() => {
+          setThemePreference(value);
+          if (Platform.OS !== 'web') Haptics.selectionAsync();
+        }}
+      >
+        {React.cloneElement(icon, { color: isActive ? '#fff' : useThemeColor({}, 'textSecondary') })}
+        <ThemedText style={[styles.themeOptionText, isActive ? { color: '#fff' } : { color: useThemeColor({}, 'textSecondary') }]}>{label}</ThemedText>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
       <Stack.Screen options={{
         title: 'Manage Accounts',
         headerShown: true,
         statusBarStyle: 'light',
-        headerStyle: { backgroundColor: '#ffffffff' },
-        headerTitleStyle: { color: '#000000ff' },
-        headerTintColor: '#000000ff',
+        headerStyle: { backgroundColor: surfaceColor },
+        headerTitleStyle: { color: useThemeColor({}, 'text') },
+        headerTintColor: tintColor,
+        headerShadowVisible: false,
       }} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.userSection}>
-          <View style={styles.userInfo}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userAvatarText}>
-                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
-              </Text>
+        <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
+          <Card variant="elevated" style={styles.userCard}>
+            <View style={styles.userInfo}>
+              <View style={styles.userAvatar}>
+                <ThemedText style={styles.userAvatarText}>
+                  {user?.displayName ? user.displayName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                </ThemedText>
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="defaultSemiBold" style={styles.userName}>{user?.displayName || 'User'}</ThemedText>
+                <ThemedText style={styles.userEmail} numberOfLines={1}>{user?.email}</ThemedText>
+              </View>
             </View>
-            <View>
-              <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
-              <Text style={styles.userEmail}>{user?.email}</Text>
+            <View style={styles.userActions}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onPress={() => sync(undefined, {
+                  onSuccess: (data: any) => {
+                    Alert.alert('Sync Success', `Uploaded ${data.uploaded} and downloaded ${data.downloaded} items.`);
+                  },
+                  onError: (err: any) => {
+                    Alert.alert('Sync Error', err.message || 'Failed to sync data');
+                  }
+                })}
+                disabled={isSyncing}
+                style={{ flex: 1 }}
+              >
+                {isSyncing ? 'Syncing...' : 'Sync Data'}
+              </Button>
+
+              <Button
+                variant="danger"
+                size="sm"
+                onPress={handleSignOut}
+                style={{ flex: 1 }}
+              >
+                Sign Out
+              </Button>
             </View>
-          </View>
-          <View style={styles.userActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.syncButton]}
-              onPress={() => sync(undefined, {
-                onSuccess: (data: any) => {
-                  Alert.alert('Sync Success', `Uploaded ${data.uploaded} and downloaded ${data.downloaded} items.`);
-                },
-                onError: (err: any) => {
-                  Alert.alert('Sync Error', err.message || 'Failed to sync data');
-                }
-              })}
-              disabled={isSyncing}
-            >
-              <RefreshCw size={20} color="#667eea" style={isSyncing ? { transform: [{ rotate: '45deg' }] } : {}} />
-              <Text style={styles.syncText}>{isSyncing ? 'Syncing...' : 'Sync Data'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionButton, styles.signOutButton]} onPress={handleSignOut}>
-              <LogOut size={20} color="#ef4444" />
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
+          </Card>
         </View>
+
+        {/* <View style={[styles.section, { backgroundColor: surfaceColor }]}>
+          <ThemedText style={styles.sectionTitle}>Appearance</ThemedText>
+          <View style={styles.themeSelector}>
+            <ThemeOption label="System" value="system" icon={<Settings size={16} color={themePreference === 'system' ? tintColor : textColor} />} />
+            <ThemeOption label="Light" value="light" icon={<Sun size={16} color={themePreference === 'light' ? tintColor : textColor} />} />
+            <ThemeOption label="Dark" value="dark" icon={<Moon size={16} color={themePreference === 'dark' ? tintColor : textColor} />} />
+          </View>
+        </View> */}
+
         {modes.length === 0 ? (
           <View style={styles.emptyState}>
-            <Wallet size={48} color="#ccc" />
-            <Text style={styles.emptyText}>No accounts yet</Text>
-            <Text style={styles.emptySubtext}>Add your first account to start tracking transactions</Text>
+            <Wallet size={48} color={useThemeColor({}, 'icon')} style={{ opacity: 0.5 }} />
+            <ThemedText style={styles.emptyText}>No accounts yet</ThemedText>
+            <ThemedText style={styles.emptySubtext}>Add your first account to start tracking transactions</ThemedText>
           </View>
         ) : (
           <View style={styles.accountsList}>
             {modes.map((mode) => (
-              <View key={mode.id} style={[styles.accountCard, { borderLeftColor: mode.color }]}>
+              <Card key={mode.id} variant="elevated" style={[styles.accountCard, { borderLeftColor: mode.color, borderLeftWidth: 4 }]}>
                 <View style={styles.accountLeft}>
                   <View style={[styles.accountIcon, { backgroundColor: mode.color + '20' }]}>
                     <Wallet size={24} color={mode.color} />
                   </View>
                   <View style={styles.accountInfo}>
-                    <Text style={styles.accountName}>{mode.name}</Text>
-                    <Text style={styles.accountBalance}>₹{mode.currentBalance.toFixed(2)}</Text>
+                    <ThemedText style={styles.accountName}>{mode.name}</ThemedText>
+                    <ThemedText style={[styles.accountBalance, { color: mode.color }]}>₹{mode.currentBalance.toFixed(2)}</ThemedText>
                     <View style={styles.statsRow}>
-                      <Text style={styles.accountInitial}>Initial: ₹{mode.initialBalance.toFixed(2)}</Text>
+                      <ThemedText style={styles.accountInitial}>Initial: ₹{mode.initialBalance.toFixed(2)}</ThemedText>
                       {(mode.spendLimit ?? 0) > 0 && (
                         <>
-                          <Text style={styles.accountLimit}> • Limit: ₹{mode.spendLimit!.toFixed(2)}</Text>
-                          <Text style={[
+                          <ThemedText style={styles.accountLimit}> • Limit: ₹{mode.spendLimit!.toFixed(2)}</ThemedText>
+                          <ThemedText style={[
                             styles.accountLimit,
                             { color: (mode.spendLimit! - transactions.filter(t => t.modeId === mode.id && t.type === 'out' && !t.isExcluded && new Date(t.date).getMonth() === new Date().getMonth() && new Date(t.date).getFullYear() === new Date().getFullYear()).reduce((sum, t) => sum + t.amount, 0)) < 0 ? '#ef4444' : '#10b981' }
                           ]}>
                             • Rem: ₹{(mode.spendLimit! - transactions.filter(t => t.modeId === mode.id && t.type === 'out' && !t.isExcluded && new Date(t.date).getMonth() === new Date().getMonth() && new Date(t.date).getFullYear() === new Date().getFullYear()).reduce((sum, t) => sum + t.amount, 0)).toFixed(2)}
-                          </Text>
+                          </ThemedText>
                         </>
                       )}
                     </View>
@@ -216,20 +278,23 @@ export default function AccountsScreen() {
                   style={styles.editButton}
                   onPress={() => handleOpenEditModal(mode)}
                 >
-                  <Edit2 size={20} color="#667eea" />
+                  <Edit2 size={20} color={tintColor} />
                 </TouchableOpacity>
-              </View>
+              </Card>
             ))}
           </View>
         )}
 
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>💡 Tips</Text>
-          <Text style={styles.infoText}>• Add all your payment methods as accounts</Text>
-          <Text style={styles.infoText}>• Cash, Bank accounts, Wallets, Credit cards, etc.</Text>
-          <Text style={styles.infoText}>• Set initial balance to track your total worth</Text>
-          <Text style={styles.infoText}>• Each transaction updates the account balance automatically</Text>
+        <View style={{ paddingHorizontal: 20 }}>
+          <Card variant="flat" style={[styles.infoSection, { backgroundColor: tintColor + '10', borderLeftColor: tintColor }]}>
+            <ThemedText style={[styles.infoTitle, { color: tintColor }]}>💡 Tips</ThemedText>
+            <ThemedText style={styles.infoText}>• Add all your payment methods as accounts</ThemedText>
+            <ThemedText style={styles.infoText}>• Cash, Bank accounts, Wallets, Credit cards, etc.</ThemedText>
+            <ThemedText style={styles.infoText}>• Set initial balance to track your total worth</ThemedText>
+            <ThemedText style={styles.infoText}>• Each transaction updates the account balance automatically</ThemedText>
+          </Card>
         </View>
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       <TouchableOpacity
@@ -237,7 +302,7 @@ export default function AccountsScreen() {
         onPress={handleOpenAddModal}
         activeOpacity={0.8}
       >
-        <LinearGradient colors={['#000000ff', '#4d4d4dff']} style={styles.fabGradient}>
+        <LinearGradient colors={Colors.light.gradients.primary} style={styles.fabGradient}>
           <Plus size={28} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
@@ -253,53 +318,44 @@ export default function AccountsScreen() {
           style={styles.modalContentWrapper}>
 
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { backgroundColor: surfaceColor }]}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
+                <ThemedText type="title">
                   {editingMode ? 'Edit Account' : 'Add Account'}
-                </Text>
+                </ThemedText>
                 <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                  <X size={24} color="#333" />
+                  <X size={24} color={textColor} />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Account Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g., Cash, Bank, Wallet"
-                  placeholderTextColor="#999"
-                />
-              </View>
+              <Input
+                label="Account Name"
+                value={name}
+                onChangeText={setName}
+                placeholder="e.g., Cash, Bank, Wallet"
+                style={{ marginBottom: 16 }}
+              />
+
+              <Input
+                label="Initial Balance"
+                value={initialBalance}
+                onChangeText={setInitialBalance}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                style={{ marginBottom: 16 }}
+              />
+
+              <Input
+                label="Spending Limit (Optional)"
+                value={spendLimit}
+                onChangeText={setSpendLimit}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                style={{ marginBottom: 16 }}
+              />
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Initial Balance</Text>
-                <TextInput
-                  style={styles.input}
-                  value={initialBalance}
-                  onChangeText={setInitialBalance}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  placeholderTextColor="#999"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Spending Limit (Optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={spendLimit}
-                  onChangeText={setSpendLimit}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  placeholderTextColor="#999"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Color</Text>
+                <ThemedText style={styles.inputLabel}>Color</ThemedText>
                 <View style={styles.colorPicker}>
                   {COLORS.map((color) => (
                     <TouchableOpacity
@@ -324,108 +380,101 @@ export default function AccountsScreen() {
                 </View>
               </View>
 
-              <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
                 {editingMode && (
-                  <TouchableOpacity
-                    style={[styles.deleteButton]}
+                  <Button
+                    variant="danger"
                     onPress={handleDeleteMode}
+                    style={{ width: 50, paddingHorizontal: 0 }}
                   >
-                    <Trash2 size={24} color="#ef4444" />
-                  </TouchableOpacity>
+                    <Trash2 size={20} color="#fff" />
+                  </Button>
                 )}
 
-                <TouchableOpacity
-                  style={[styles.submitButton, (!name || !initialBalance || isAddingMode) && styles.submitButtonDisabled, { flex: 1, marginTop: 0 }]}
+                <Button
+                  variant="primary"
                   onPress={handleSave}
                   disabled={!name || !initialBalance || isAddingMode}
+                  loading={isAddingMode}
+                  style={{ flex: 1 }}
                 >
-                  <LinearGradient
-                    colors={(!name || !initialBalance || isAddingMode) ? ['#ccc', '#999'] : selectedColor ? [selectedColor, selectedColor] : ['#667eea', '#764ba2']}
-                    style={styles.submitButtonGradient}
-                  >
-                    <Text style={styles.submitButtonText}>
-                      {isAddingMode ? 'Saving...' : editingMode ? 'Save Changes' : 'Add Account'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                  {editingMode ? 'Save Changes' : 'Add Account'}
+                </Button>
               </View>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  userSection: {
-    backgroundColor: '#fff',
+  userCard: {
     padding: 20,
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderRadius: 24,
   },
   userInfo: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   userAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#364fbdff',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 16,
   },
   userAvatarText: {
     fontSize: 24,
-    fontWeight: '700' as const,
+    fontWeight: '700',
     color: '#fff',
   },
   userName: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#333',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#666',
+    opacity: 0.7,
   },
   userActions: {
-    flexDirection: 'row' as const,
+    flexDirection: 'row',
     gap: 12,
   },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    padding: 12,
-    borderRadius: 12,
+  section: {
+    margin: 20,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  themeSelector: {
+    flexDirection: 'row',
     gap: 8,
   },
-  syncButton: {
-    backgroundColor: '#eef2ff',
+  themeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    gap: 8,
   },
-  syncText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#667eea',
-  },
-  signOutButton: {
-    backgroundColor: '#fee2e2',
-  },
-  signOutText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#ef4444',
+  themeOptionText: {
+    fontSize: 14,
   },
   content: {
     flex: 1,
@@ -438,15 +487,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
     padding: 16,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   accountLeft: {
     flexDirection: 'row',
@@ -466,19 +507,17 @@ const styles = StyleSheet.create({
   },
   accountName: {
     fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#333',
+    fontWeight: '700',
     marginBottom: 4,
   },
   accountBalance: {
     fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#667eea',
+    fontWeight: '700',
     marginBottom: 2,
   },
   accountInitial: {
     fontSize: 12,
-    color: '#999',
+    opacity: 0.6,
   },
   statsRow: {
     flexDirection: 'row',
@@ -486,7 +525,6 @@ const styles = StyleSheet.create({
   },
   accountLimit: {
     fontSize: 12,
-    color: '#ef4444',
     marginLeft: 4,
   },
   editButton: {
@@ -498,34 +536,29 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#666',
+    fontWeight: '600',
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    opacity: 0.6,
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,
   },
   infoSection: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    padding: 24,
+    borderRadius: 24,
     borderLeftWidth: 4,
-    borderLeftColor: '#667eea',
   },
   infoTitle: {
     fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#333',
+    fontWeight: '700',
     marginBottom: 12,
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    opacity: 0.8,
     lineHeight: 22,
     marginBottom: 4,
   },
@@ -555,7 +588,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -567,11 +599,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700' as const,
-    color: '#333',
-  },
   modalContentWrapper: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -581,16 +608,8 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#333',
+    fontWeight: '600',
     marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
   },
   colorPicker: {
     flexDirection: 'row',
@@ -618,29 +637,5 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     backgroundColor: '#fff',
-  },
-  submitButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  deleteButton: {
-    backgroundColor: '#fee2e2',
-    width: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

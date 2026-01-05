@@ -1,5 +1,3 @@
-import { useFilteredTransactions } from '@/providers/TransactionProvider';
-import { Transaction } from '@/types/transaction';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
     endOfMonth,
@@ -8,32 +6,39 @@ import {
     startOfMonth,
     startOfYear,
 } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 import {
     Calendar,
-    Edit2,
     Search,
-    Trash2,
     TrendingDown,
     TrendingUp,
-    X,
+    X
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
+    Platform,
     ScrollView,
     SectionList,
     StyleSheet,
-    Text,
     TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
+
+import { Colors } from '@/constants/theme';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import { useFilteredTransactions } from '@/providers/TransactionProvider';
+import { Transaction } from '@/types/transaction';
 import ChartComponent from './ChartComponent';
+
+import { ThemedText } from './ThemedText';
+import { Card } from './ui/Card';
 
 interface EntriesComponentProps {
     modeId?: string | null;
     onEdit: (transaction: Transaction) => void;
     onDelete: (transactionId: string) => void;
-    transactions?: Transaction[]; // Optional: Pass explicit transactions or use provider
+    transactions?: Transaction[];
     showChart?: boolean;
     initialFilterType?: 'month' | 'year' | 'custom';
     initialStartDate?: number;
@@ -59,7 +64,13 @@ export default function EntriesComponent({
     const [customStartDate, setCustomStartDate] = useState<number | null>(null);
     const [customEndDate, setCustomEndDate] = useState<number | null>(null);
 
-    // Apply initial filter type if provided (e.g. from Analysis screen)
+    const surfaceColor = useThemeColor({}, 'surface');
+    const backgroundColor = useThemeColor({}, 'background');
+    const textColor = useThemeColor({}, 'text');
+    const textSecondaryColor = useThemeColor({}, 'textSecondary');
+    const tintColor = useThemeColor({}, 'tint');
+
+    // Apply initial filter type if provided
     React.useEffect(() => {
         if (initialFilterType) {
             setFilterType(initialFilterType);
@@ -70,7 +81,7 @@ export default function EntriesComponent({
         }
     }, [initialFilterType, initialStartDate, initialEndDate]);
 
-    // Reset filters when showChart becomes false (simulating 'reset' on tab press/new navigation)
+    // Reset filters when showChart becomes false
     React.useEffect(() => {
         if (!showChart) {
             setFilterType('month');
@@ -95,8 +106,6 @@ export default function EntriesComponent({
 
     const [startDate, endDate] = getDateRange();
 
-    // ... (rest of filtering logic handles itself via dependencies) ... 
-    // We just need to ensure explicitTransactions or providerTransactions are correct.
     const providerTransactions = useFilteredTransactions(startDate, endDate);
     const rawTransactions = explicitTransactions || providerTransactions;
 
@@ -139,61 +148,51 @@ export default function EntriesComponent({
     }, [filteredTransactions]);
 
     const renderTransactionItem = ({ item }: { item: Transaction }) => {
+        const isIncome = item.type === 'in';
+        const itemColor = isIncome ? Colors.light.success : Colors.light.error;
+
         return (
-            <View key={item.id} style={styles.transactionCard}>
-                <View style={styles.transactionLeft}>
-                    <View style={[styles.transactionIcon, { backgroundColor: item.type === 'in' ? '#d1fae5' : '#fee2e2' }]}>
-                        {item.type === 'in' ? (
-                            <TrendingUp size={20} color="#10b981" />
-                        ) : (
-                            <TrendingDown size={20} color="#ef4444" />
-                        )}
-                    </View>
-                    <View style={styles.transactionInfo}>
-                        <View style={styles.transactionTopRow}>
-                            <Text style={styles.transactionType}>
-                                {item.type === 'in' ? 'Income' : 'Expense'}
-                            </Text>
+            <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => onEdit(item)}
+                style={{ marginBottom: 12, marginHorizontal: 16 }}
+            >
+                <Card variant="elevated" style={styles.transactionCard}>
+                    <View style={styles.transactionLeft}>
+                        <View style={[styles.transactionIcon, { backgroundColor: itemColor + '15' }]}>
+                            {isIncome ? (
+                                <TrendingUp size={20} color={itemColor} />
+                            ) : (
+                                <TrendingDown size={20} color={itemColor} />
+                            )}
                         </View>
-                        {item.note && (
-                            <Text style={styles.transactionNote}>{item.note}</Text>
-                        )}
-                        <Text style={styles.transactionTime}>
-                            {format(new Date(item.date), 'h:mm a')}
-                        </Text>
+                        <View style={styles.transactionInfo}>
+                            <ThemedText style={{ fontWeight: '600', fontSize: 16 }}>{item.note || (isIncome ? 'Income' : 'Expense')}</ThemedText>
+                            <ThemedText style={{ fontSize: 13, color: textSecondaryColor, marginTop: 2 }}>{format(new Date(item.date), 'h:mm a')}</ThemedText>
+                        </View>
                     </View>
-                </View>
-                <View style={styles.transactionRight}>
-                    <Text
-                        style={[
-                            styles.transactionAmount,
-                            item.type === 'in' ? styles.incomeAmount : styles.expenseAmount,
-                        ]}
-                    >
-                        {item.type === 'in' ? '+' : '-'}₹{item.amount.toFixed(2)}
-                    </Text>
-                    <View style={styles.transactionActions}>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(item)}>
-                            <Edit2 size={16} color="#667eea" />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => onDelete(item.id)}>
-                            <Trash2 size={16} color="#ef4444" />
-                        </TouchableOpacity>
+                    <View style={styles.transactionRight}>
+                        <ThemedText style={{ fontSize: 16, fontWeight: '700', color: itemColor }}>
+                            {isIncome ? '+' : '-'}₹{item.amount.toFixed(2)}
+                        </ThemedText>
                     </View>
-                </View>
-            </View>
+                </Card>
+            </TouchableOpacity>
         );
     };
 
     const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
-        <Text style={styles.dateHeader}>{format(new Date(title), 'MMM dd, yyyy')}</Text>
+        <View style={[styles.dateHeader, { backgroundColor }]}>
+            <ThemedText style={{ fontSize: 13, fontWeight: '600', color: textSecondaryColor, opacity: 0.8 }}>
+                {format(new Date(title), 'MMM dd, yyyy').toUpperCase()}
+            </ThemedText>
+        </View>
     );
 
-    // Chart header now ONLY contains the chart, so it scrolls with the list
     const renderHeader = () => {
         if (!showChart) return null;
         return (
-            <View style={{ paddingHorizontal: 16 }}>
+            <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
                 <ChartComponent
                     transactions={filteredTransactions}
                     startDate={startDate}
@@ -204,97 +203,77 @@ export default function EntriesComponent({
     };
 
     return (
-        <View style={styles.container}>
-            {/* Sticky Filters Section (Fixed at Top) */}
-            <View style={styles.stickyHeaderContainer}>
-                {/* Filter Bar */}
+        <View style={[styles.container, { backgroundColor }]}>
+            {/* Filter Bar */}
+            <View style={[styles.stickyHeaderContainer, { backgroundColor, borderBottomColor: surfaceColor, borderBottomWidth: 1 }]}>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    style={styles.filterBar}
                     contentContainerStyle={styles.filterBarContent}
                 >
-                    <TouchableOpacity
-                        style={[styles.filterButton, filterType === 'month' && styles.filterButtonActive]}
+                    <FilterButton
+                        label="Month"
+                        active={filterType === 'month'}
                         onPress={() => setFilterType('month')}
-                    >
-                        <Text style={[styles.filterButtonText, filterType === 'month' && styles.filterButtonTextActive]}>
-                            This Month
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.filterButton, filterType === 'year' && styles.filterButtonActive]}
+                    />
+                    <FilterButton
+                        label="Year"
+                        active={filterType === 'year'}
                         onPress={() => setFilterType('year')}
-                    >
-                        <Text style={[styles.filterButtonText, filterType === 'year' && styles.filterButtonTextActive]}>
-                            This Year
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.filterButton, filterType === 'custom' && styles.filterButtonActive]}
+                    />
+                    <FilterButton
+                        label={customStartDate && customEndDate ? `${format(customStartDate, 'dd MMM')} - ${format(customEndDate, 'dd MMM')}` : 'Custom'}
+                        active={filterType === 'custom'}
                         onPress={() => {
                             setFilterType('custom');
                             setIsSelectingStart(true);
                             setShowDatePicker(true);
                         }}
-                    >
-                        <Calendar size={14} color={filterType === 'custom' ? '#fff' : '#667eea'} />
-                        <Text style={[styles.filterButtonText, filterType === 'custom' && styles.filterButtonTextActive]}>
-                            {customStartDate && customEndDate
-                                ? `${format(customStartDate, 'dd MMM')} - ${format(customEndDate, 'dd MMM')}`
-                                : 'Custom'}
-                        </Text>
-                    </TouchableOpacity>
+                        icon={<Calendar size={14} color={filterType === 'custom' ? '#fff' : textSecondaryColor} />}
+                    />
 
-                    <TouchableOpacity
-                        style={[styles.filterButton, selectedType === 'in' && styles.filterButtonActive]}
+                    <View style={styles.verticalDivider} />
+
+                    <FilterButton
+                        label="Income"
+                        active={selectedType === 'in'}
                         onPress={() => setSelectedType(selectedType === 'in' ? 'all' : 'in')}
-                    >
-                        <TrendingUp size={14} color={selectedType === 'in' ? '#fff' : '#10b981'} />
-                        <Text style={[styles.filterButtonText, selectedType === 'in' && styles.filterButtonTextActive]}>
-                            Income
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.filterButton, selectedType === 'out' && styles.filterButtonActive]}
+                        color={Colors.light.success}
+                    />
+                    <FilterButton
+                        label="Expense"
+                        active={selectedType === 'out'}
                         onPress={() => setSelectedType(selectedType === 'out' ? 'all' : 'out')}
-                    >
-                        <TrendingDown size={14} color={selectedType === 'out' ? '#fff' : '#ef4444'} />
-                        <Text style={[styles.filterButtonText, selectedType === 'out' && styles.filterButtonTextActive]}>
-                            Expense
-                        </Text>
-                    </TouchableOpacity>
+                        color={Colors.light.error}
+                    />
                 </ScrollView>
 
                 {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                    <Search size={18} color="#999" />
+                <View style={[styles.searchContainer, { backgroundColor: surfaceColor }]}>
+                    <Search size={18} color={textSecondaryColor} />
                     <TextInput
-                        style={styles.searchInput}
+                        style={[styles.searchInput, { color: textColor }]}
                         placeholder="Search entries..."
-                        placeholderTextColor="#aaa"
+                        placeholderTextColor={textSecondaryColor}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
                     {searchQuery.length > 0 && (
                         <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
-                            <X size={16} color="#999" />
+                            <X size={16} color={textSecondaryColor} />
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
 
-            {/* List with Chart as Header */}
+            {/* List */}
             <View style={styles.listContainer}>
                 {sections.length === 0 ? (
                     <>
                         {renderHeader()}
                         <View style={styles.emptyState}>
-                            <Calendar size={48} color="#ccc" />
-                            <Text style={styles.emptyText}>No entries found</Text>
+                            <Calendar size={48} color={textSecondaryColor} style={{ opacity: 0.3 }} />
+                            <ThemedText style={{ color: textSecondaryColor, marginTop: 12 }}>No entries found</ThemedText>
                         </View>
                     </>
                 ) : (
@@ -336,95 +315,105 @@ export default function EntriesComponent({
     );
 }
 
+// Mini component for Filter Button to keep code clean
+function FilterButton({ label, active, onPress, icon, color }: any) {
+    const tint = useThemeColor({}, 'tint');
+    const textSecondary = useThemeColor({}, 'textSecondary');
+    const surface = useThemeColor({}, 'surface');
+
+    // If specific color provided (like for Income/Expense), use it for active state bg or border
+    const activeBg = color || tint;
+    const activeColor = '#fff';
+    const inactiveColor = textSecondary;
+
+    return (
+        <TouchableOpacity
+            style={[
+                styles.filterButton,
+                {
+                    backgroundColor: active ? activeBg : surface,
+                    borderColor: active ? activeBg : 'transparent' // or surfaceHighlight
+                }
+            ]}
+            onPress={() => {
+                onPress();
+                if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+        >
+            {icon}
+            <ThemedText style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: active ? activeColor : inactiveColor
+            }}>
+                {label}
+            </ThemedText>
+        </TouchableOpacity>
+    )
+}
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
     stickyHeaderContainer: {
-        backgroundColor: '#fff',
         zIndex: 10,
-        elevation: 2,
-    },
-    // filterBar styles unchanged
-    filterBar: {
-        backgroundColor: '#fff',
-        maxHeight: 50,
-        marginBottom: 8, // Add spacing below filter bar since it scrolls now
+        paddingBottom: 8,
     },
     filterBarContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 8,
     },
     filterButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        borderRadius: 16,
-        borderWidth: 1.5,
-        borderColor: '#192142',
-        backgroundColor: '#fff',
-        marginRight: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
     },
-    filterButtonActive: {
-        backgroundColor: '#192142',
-        borderColor: '#192142',
-    },
-    filterButtonText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#192142',
-    },
-    filterButtonTextActive: {
-        color: '#fff',
+    verticalDivider: {
+        width: 1,
+        height: 20,
+        backgroundColor: '#e5e5e5',
+        marginHorizontal: 4,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: 12,
-        marginTop: 0,
-        marginBottom: 12,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderWidth: 1,
-        borderColor: '#eee',
+        marginHorizontal: 16,
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 8, // reduced
+        marginBottom: 4,
     },
     searchInput: {
         flex: 1,
         fontSize: 14,
         paddingLeft: 8,
-        color: '#333',
-        height: 40, // Fixed height for alignment
+        height: 36,
         paddingVertical: 0,
-        textAlignVertical: 'center',
     },
     listContainer: {
         flex: 1,
     },
     listContent: {
-        paddingBottom: 20,
+        paddingBottom: 40,
     },
     dateHeader: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#666',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#f5f5f5',
+        paddingTop: 24,
     },
     transactionCard: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#fff',
         padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f5f5f5',
+        borderRadius: 20, // More rounded
     },
     transactionLeft: {
         flexDirection: 'row',
@@ -432,65 +421,22 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     transactionIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: 14,
     },
     transactionInfo: {
         flex: 1,
     },
-    transactionTopRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
-    },
-    transactionType: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-    },
-    transactionNote: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 4,
-    },
-    transactionTime: {
-        fontSize: 12,
-        color: '#999',
-    },
     transactionRight: {
         alignItems: 'flex-end',
-    },
-    transactionAmount: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 8,
-    },
-    incomeAmount: {
-        color: '#10b981',
-    },
-    expenseAmount: {
-        color: '#ef4444',
-    },
-    transactionActions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    actionButton: {
-        padding: 6,
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 60,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#999',
-        marginTop: 12,
     },
 });

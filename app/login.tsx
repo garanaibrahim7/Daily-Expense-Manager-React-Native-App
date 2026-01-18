@@ -27,9 +27,9 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState('');
-  console.log('[LoginScreen] calling useAuth...');
+
   const { signIn, signUp } = useAuth();
-  console.log('[LoginScreen] useAuth success');
+
 
   const tintColor = useThemeColor({}, 'tint');
   const backgroundColor = useThemeColor({}, 'background');
@@ -56,7 +56,7 @@ export default function LoginScreen() {
       }
       router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('Auth error:', error);
+
 
       let message = error.message;
       if (error.code === 'auth/email-already-in-use') {

@@ -69,7 +69,7 @@ export async function initDatabase(): Promise<SQLite.SQLiteDatabase> {
         await db.execAsync('ALTER TABLE transaction_modes ADD COLUMN spend_limit REAL DEFAULT 0;');
       }
     } catch (e) {
-      console.warn('Migration for spend_limit failed', e);
+
     }
 
     // console.log('Database initialized successfully');

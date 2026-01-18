@@ -43,7 +43,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
   const userId = user?.uid || '';
 
   useEffect(() => {
-    db.initDatabase().catch(err => console.error('DB init failed', err));
+    db.initDatabase().catch(err => { });
   }, []);
 
   /**********************
@@ -83,7 +83,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           }
         }
       } catch (err) {
-        console.error('Initial backup pull failed', err);
+
       }
     })();
 
@@ -108,7 +108,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
             await firebase.syncTransactionModeToFirebase(userId, m);
             await db.markTransactionModeSynced(m.id);
           } catch (e) {
-            console.warn('Failed uploading mode', m.id, e);
+
           }
         }
 
@@ -118,7 +118,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
             await firebase.syncTransactionToFirebase(userId, t);
             await db.markTransactionSynced(t.id);
           } catch (e) {
-            console.warn('Failed uploading tx', t.id, e);
+
           }
         }
 
@@ -127,7 +127,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           queryClient.invalidateQueries({ queryKey: ['transactions', userId] });
         }
       } catch (err) {
-        console.error('Auto sync error', err);
+
       }
     };
 
@@ -199,7 +199,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           await db.markTransactionModeSynced(mode.id);
           queryClient.invalidateQueries({ queryKey: ['transaction-modes', userId] });
         } catch (e) {
-          console.warn('Immediate upload failed for mode', e);
+
         }
       }
     },
@@ -218,7 +218,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           await firebase.syncTransactionModeToFirebase(userId, mode);
           await db.markTransactionModeSynced(mode.id);
           queryClient.invalidateQueries({ queryKey: ['transaction-modes', userId] });
-        } catch (e) { console.warn(e); }
+        } catch (e) { }
       }
     },
   });
@@ -297,7 +297,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           await db.markTransactionSynced(transaction.id);
           queryClient.invalidateQueries({ queryKey: ['transactions', userId] });
         } catch (e) {
-          console.warn('Immediate transaction upload failed', e);
+
         }
       }
     },
@@ -363,7 +363,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
           await firebase.syncTransactionToFirebase(userId, transaction);
           await db.markTransactionSynced(transaction.id);
           queryClient.invalidateQueries({ queryKey: ['transactions', userId] });
-        } catch (e) { console.warn(e); }
+        } catch (e) { }
       }
     },
   });

@@ -66,7 +66,7 @@ export async function fetchAllTransactionModes(userId: string): Promise<Transact
       spendLimit: (d.data() as any).spendLimit || 0,
     }));
   } catch (err) {
-    console.error('fetchAllTransactionModes error', err);
+
     return [];
   }
 }
@@ -92,7 +92,7 @@ export async function fetchAllTransactions(userId: string): Promise<Transaction[
       } as Transaction;
     });
   } catch (err) {
-    console.error('fetchAllTransactions error', err);
+
     return [];
   }
 }
@@ -114,7 +114,7 @@ export async function syncTransactionModeToFirebase(userId: string, mode: Transa
     }, { merge: true });
     // console.log('Uploaded mode to firebase:', mode.id);
   } catch (err) {
-    console.warn('Failed upload mode to firebase', err);
+
     throw err;
   }
 }
@@ -137,7 +137,7 @@ export async function syncTransactionToFirebase(userId: string, transaction: Tra
     }, { merge: true });
     // console.log('Uploaded transaction to firebase:', transaction.id);
   } catch (err) {
-    console.warn('Failed upload transaction to firebase', err);
+
     throw err;
   }
 }
@@ -148,7 +148,7 @@ export async function deleteTransactionFromFirebase(userId: string, txId: string
     await deleteDoc(doc(firestore, `users/${userId}/transactions`, txId));
     // console.log('Deleted transaction on firebase:', txId);
   } catch (err) {
-    console.warn('Failed delete transaction on firebase', err);
+
     throw err;
   }
 }
@@ -159,7 +159,7 @@ export async function deleteTransactionModeFromFirebase(userId: string, modeId: 
     await deleteDoc(doc(firestore, `users/${userId}/transaction_modes`, modeId));
     // console.log('Deleted mode on firebase:', modeId);
   } catch (err) {
-    console.warn('Failed delete mode on firebase', err);
+
     throw err;
   }
 }
@@ -188,7 +188,7 @@ export async function syncBidirectionalData(userId: string): Promise<{ uploaded:
         await db.upsertTransactionMode(userId, rm);
         downloaded++;
       } catch (err) {
-        console.warn('upsert mode failed', rm.id, err);
+
       }
     }
 
@@ -197,7 +197,7 @@ export async function syncBidirectionalData(userId: string): Promise<{ uploaded:
         await db.upsertTransaction(userId, rt);
         downloaded++;
       } catch (err) {
-        console.warn('upsert transaction failed', rt.id, err);
+
       }
     }
 
@@ -213,7 +213,7 @@ export async function syncBidirectionalData(userId: string): Promise<{ uploaded:
         await db.markTransactionModeSynced(lm.id);
         uploaded++;
       } catch (err) {
-        console.warn('upload local mode failed', lm.id, err);
+
       }
     }
 
@@ -223,14 +223,14 @@ export async function syncBidirectionalData(userId: string): Promise<{ uploaded:
         await db.markTransactionSynced(lt.id);
         uploaded++;
       } catch (err) {
-        console.warn('upload local tx failed', lt.id, err);
+
       }
     }
 
     // console.log(`syncBidirectionalData done uploaded=${uploaded} downloaded=${downloaded}`);
     return { uploaded, downloaded };
   } catch (err) {
-    console.error('syncBidirectionalData error', err);
+
     return { uploaded, downloaded };
   }
 }

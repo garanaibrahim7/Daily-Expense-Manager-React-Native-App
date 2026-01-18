@@ -27,7 +27,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                     setThemePreference(stored);
                 }
             } catch (e) {
-                console.warn('Failed to load theme preference', e);
+
             } finally {
                 setLoaded(true);
             }
@@ -40,7 +40,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         try {
             await AsyncStorage.setItem(THEME_KEY, newTheme);
         } catch (e) {
-            console.warn('Failed to save theme preference', e);
+
         }
     };
 

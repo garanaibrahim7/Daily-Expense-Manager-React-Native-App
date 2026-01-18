@@ -41,15 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const instanceId = useMemo(() => Math.random().toString(36).substr(2, 5), []);
-  console.log(`[AuthProvider:${instanceId}] Rendering...`);
+
 
   useEffect(() => {
     let isMounted = true;
-    console.log(`[AuthProvider:${instanceId}] Mounting effect...`);
+
     const firebase = initFirebase();
     // ... rest of effect
     if (!firebase) {
-      console.error('[AuthProvider] Firebase not configured');
+
       setError('Firebase not configured properly');
       setLoading(false);
       return;
@@ -60,11 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cached = await AsyncStorage.getItem(AUTH_USER_KEY);
         if (cached) {
           const parsed = JSON.parse(cached);
-          console.log('[AuthProvider] Restored cached user:', parsed.email);
+
           setUser(parsed as User);
         }
       } catch (err) {
-        console.warn('Error reading cached user:', err);
+
       }
     };
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(firebase.auth, async (firebaseUser) => {
       if (!isMounted) return;
 
-      console.log('[AuthProvider] Auth state changed:', firebaseUser?.email);
+
       setLoading(false);
 
       if (firebaseUser) {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const result = await signInWithEmailAndPassword(firebase.auth, email, password);
-      console.log('[AuthProvider] Sign in success');
+
       setUser(result.user);
       await AsyncStorage.setItem(
         AUTH_USER_KEY,
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       return result.user;
     } catch (err: any) {
-      console.error('Sign in error:', err);
+
       const msg =
         err.code === 'auth/invalid-credential'
           ? 'Invalid email or password'
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       return result.user;
     } catch (err: any) {
-      console.error('Sign up error:', err);
+
       const msg =
         err.code === 'auth/email-already-in-use'
           ? 'Email already in use'
@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.removeItem(AUTH_USER_KEY);
       setUser(null);
     } catch (err: any) {
-      console.error('Sign out error:', err);
+
       setError(err.message);
       throw err;
     }
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await sendPasswordResetEmail(firebase.auth, email);
     } catch (err: any) {
-      console.error('Reset password error:', err);
+
       setError(err.message);
       throw err;
     }
